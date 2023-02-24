@@ -66,12 +66,13 @@ apt install rtl-sdr
 
 ### Steps
 
-```bash
-# Remote RTL connection via TCP, to get more up to date or device specific support you may want to find a fork of the librtlsdr repo and build it yourself
-rtl_tcp -a 10.20.30.40
+To create a remote RTL connection via TCP, to get more up to date or device specific support you may want to find a fork of the librtlsdr repo and build it yourself:
 
-# Then connect to it via [HDSDR](https://www.hdsdr.de/) (windows) or a similar client
+```bash
+rtl_tcp -a 10.20.30.40
 ```
+
+Then connect to it via [HDSDR](https://www.hdsdr.de/) (windows) or a similar client
 
 ### Links
 
