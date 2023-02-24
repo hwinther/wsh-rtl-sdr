@@ -29,13 +29,36 @@ apt install gr-gsm kalibrate-rtl
 ### Steps
 
 ```bash
-# Scan the GSM band, looking for the strongest sender
-kal -s GSM900
+# Scan the "GSM900" band (aka P-GSM), alternatively "GSM-R" for railroad, "EGSM", or "DSC" (aka DCS) 1800 MHz. (The latter is out of range for the NESDR and most RTL-SDR devices.)
+kal -s GSM900 -g 49.6
 
+# Look for the strongest channel and use that as a parameter in the following command, note that -s 3.2M is also used to specify the highest available sample rate
+grgsm_livemon -f 945.4M -g 49.g -s 3.2M
+
+# There is a grgsm_livemon_headless version but it's bugged in my kali install, livemon expects an X output and VNC is useful in this regard
+# grgsm_livemon* will also send data to localhost on the lo interface, which various scripts/apps can use simultaneously, e.g.:
+
+# Interactive inspection via wireshark in X
+sudo wireshark -k -f udp -Y gsmtap -i lo
+
+# Via the dedsecimsi tool, IMSI catcher
+python tools/dedsecimsi/imsi.py
+
+# SMS catcher (probably not going to see anything these days)
+python tools/dedsecimsi/sms.py
+
+# TODO: write an alternative implementation that translates MCC/MNC and displays network information (telenor station name etc)
 
 ```
 
+### Sources
+
+- [GSM-R usage in Norway](https://no.wikipedia.org/wiki/GSM-R)
+- [GSM usage in Norway](https://no.wikipedia.org/wiki/GSM)
+
 ## FM
+
+## TETRA (EU emergency band)
 
 ## ADS-B (aircraft)
 
