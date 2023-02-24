@@ -1,0 +1,3 @@
+[submodule "tools/dedsecimsi"]
+	path = tools/dedsecimsi
+	url = https://github.com/0xbitx/dedsecimsi.git
