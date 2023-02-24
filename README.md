@@ -51,12 +51,32 @@ python tools/dedsecimsi/sms.py
 
 ```
 
-### Sources
+### Links
 
 - [GSM-R usage in Norway](https://no.wikipedia.org/wiki/GSM-R)
 - [GSM usage in Norway](https://no.wikipedia.org/wiki/GSM)
 
 ## FM
+
+### Prerequisites
+
+```bash
+apt install rtl-sdr
+```
+
+### Steps
+
+```bash
+# Remote RTL connection via TCP, to get more up to date or device specific support you may want to find a fork of the librtlsdr repo and build it yourself
+rtl_tcp -a 10.20.30.40
+
+# Then connect to it via [HDSDR](https://www.hdsdr.de/) (windows) or a similar client
+```
+
+### Links
+
+- [librtlsdr dev branch](https://github.com/librtlsdr/librtlsdr/tree/development)
+- [librtlsdr fork](https://github.com/hayguen/librtlsdr/tree/development)
 
 ## TETRA (EU emergency band)
 
@@ -68,7 +88,7 @@ python tools/dedsecimsi/sms.py
 
 ## AMS (power meter OTA/IOT/mesh)
 
-## Sources
+## Generic links
 
 - [Kali linux SDR guide](https://www.kalilinux.in/2021/11/begineers-guide-of-rtl-sdr.html)
 - [NooElec NESDR v5 from Amazon](https://www.amazon.com/NooElec-NESDR-Smart-Bundle-R820T2-Based/dp/B01GDN1T4S)
