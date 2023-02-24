@@ -81,6 +81,22 @@ Then connect to it via [HDSDR](https://www.hdsdr.de/) (windows) or a similar cli
 
 ## TETRA (EU emergency band)
 
+### Prerequisites
+
+```bash
+apt install x
+```
+
+### Steps
+
+```bash
+x
+```
+
+### Links
+
+- [tetra-kit](https://gitlab.com/larryth/tetra-kit)
+
 ## ADS-B (aircraft)
 
 ## AIS (ship location)
