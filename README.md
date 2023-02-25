@@ -171,13 +171,26 @@ popd
 ### Prerequisites
 
 ```bash
-todo
+# Use rtl_ais submodule in tools folder
+pushd tools/rtl_ais/
+make
+popd
+
+flatpak install --user https://flathub.org/repo/appstream/org.opencpn.OpenCPN.flatpakref
 ```
 
 ### Steps
 
 ```bash
-todo
+pushd tools/rtl_ais/
+./rtl_ais -n -T
+popd
+
+# Start OpenCPN in another terminal with X available
+flatpak run org.opencpn.OpenCPN
+
+# Add local connection TCP host 127.0.0.1 and port 11010
+# Update map data to get better resolution
 ```
 
 ### Links
@@ -207,26 +220,13 @@ todo
 ### Prerequisites
 
 ```bash
-# Use rtl_ais submodule in tools folder
-pushd tools/rtl_ais/
-make
-popd
-
-flatpak install --user https://flathub.org/repo/appstream/org.opencpn.OpenCPN.flatpakref
+todo
 ```
 
 ### Steps
 
 ```bash
-pushd tools/rtl_ais/
-./rtl_ais -n -T
-popd
-
-# Start OpenCPN in another terminal with X available
-flatpak run org.opencpn.OpenCPN
-
-# Add local connection TCP host 127.0.0.1 and port 11010
-# Update map data to get better resolution
+todo
 ```
 
 ### Links
