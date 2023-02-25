@@ -101,6 +101,7 @@ rtl_tcp -a 10.20.30.40
 
 Install TETRA plugins in SDR# plugins folder and add them, search for relevant channels in the spectrum used in your area (380-400 MHz in Norway)
 Set radio type NFM and bandwidth 25.000, once a channel is selected the TETRA demodulator will show MCC, MNC++ check the net info window for further details on the cell properties.
+You can also verify that you have found a TETRA channel with [audio samples](https://www.sigidwiki.com/wiki/Terrestrial_Trunked_Radio_(TETRA))
 
 ### Links
 
