@@ -151,7 +151,7 @@ make
 ./dump1090 --net --write-json /run/dump1090-fa/
 popd
 
-# For 978
+# For 978 - which seems to not be in use in EU/Norway at this time
 pushd tools/dump978
 make
 ./dump978-fa --sdr driver=rtlsdr --format CS8 --raw-port 30978 --json-port 30979
