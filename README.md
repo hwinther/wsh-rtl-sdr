@@ -117,6 +117,11 @@ You can also verify that you have found a TETRA channel with [audio samples](htt
 
 ## AMS (power meter OTA/IOT/mesh)
 
+### Links
+
+- [RTL AMR](https://github.com/bemasher/rtlamr)
+- [NKOM AMS info](https://www.nkom.no/fysiske-nett-og-infrastruktur/elektromagnetisk-straling/_/attachment/download/e2080144-5414-455b-8c8e-add667c6ac5a:ce2b3f4e8b5973662d20692f3d04cb55ebc060d3/Avanserte%20m%C3%A5le-%20og%20styringssystemer%20-%20m%C3%A5ling%20av%20eksponering%20og%20sendetid.pdf)
+
 ## Generic links
 
 - [Kali linux SDR guide](https://www.kalilinux.in/2021/11/begineers-guide-of-rtl-sdr.html)
@@ -126,3 +131,4 @@ You can also verify that you have found a TETRA channel with [audio samples](htt
 - [Custom/DIY antenna](https://www.rtl-sdr.com/tag/antenna/)
 - [Reddit RTLSDR wiki](https://old.reddit.com/r/RTLSDR/wiki/index)
 - [Interesting NG RTL-SDR LimeSDR, also comparison of HackRF, RTL-SDR and others](https://www.crowdsupply.com/lime-micro/limesdr)
+- [RTL SDR custom drivers for HDSDR](https://github.com/hayguen?tab=repositories)
