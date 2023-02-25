@@ -195,7 +195,9 @@ flatpak run org.opencpn.OpenCPN
 
 ### Links
 
-- [TODO](#)
+- [RTL SDR AIS blobpost](https://www.klofas.com/blog/2021/ais-decoding-with-rtl-sdr-dongle/)
+- [rtl-ais repo](https://github.com/dgiardini/rtl-ais)
+- [OpenCPN download page](https://opencpn.org/OpenCPN/info/downloadopencpn.html)
 
 ## 433 IOT
 
