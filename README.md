@@ -148,7 +148,8 @@ systemctl restart lighttpd.service
 
 pushd tools/dump1090
 make
-./dump1090 --net --write-json /run/dump1090-fa/
+# Use --write-json if you want to use the web interface, --interactive for an updated list in the current console session or --net if you want to use ./view1090 to get an interactive output in another console session
+./dump1090 --write-json /run/dump1090-fa/ --interactive
 popd
 
 # For 978 - which seems to not be in use in EU/Norway at this time
