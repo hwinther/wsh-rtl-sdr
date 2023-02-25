@@ -83,19 +83,30 @@ Then connect to it via [HDSDR](https://www.hdsdr.de/) (windows) or a similar cli
 
 ### Prerequisites
 
-```bash
-apt install x
-```
+(Windows)
+- SDR#
+- TETRA Demodulator
+- TETRA Network Monitor
+
+(Linux)
+- TETRA-kit
 
 ### Steps
 
+First set up rtl_tcp if working remotely
+
 ```bash
-x
+rtl_tcp -a 10.20.30.40
 ```
+
+Install TETRA plugins in SDR# plugins folder and add them, search for relevant channels in the spectrum used in your area (380-400 MHz in Norway)
+Set radio type NFM and bandwidth 25.000, once a channel is selected the TETRA demodulator will show MCC, MNC++ check the net info window for further details on the cell properties.
 
 ### Links
 
+- [SDR#](https://airspy.com/download/)
 - [tetra-kit](https://gitlab.com/larryth/tetra-kit)
+- [TETRA wikipedia](https://en.wikipedia.org/wiki/Terrestrial_Trunked_Radio)
 
 ## ADS-B (aircraft)
 
