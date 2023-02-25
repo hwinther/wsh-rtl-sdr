@@ -108,6 +108,7 @@ You can also verify that you have found a TETRA channel with [audio samples](htt
 - [SDR#](https://airspy.com/download/)
 - [tetra-kit](https://gitlab.com/larryth/tetra-kit)
 - [TETRA wikipedia](https://en.wikipedia.org/wiki/Terrestrial_Trunked_Radio)
+- [TETRA references](https://wiki.radioreference.com/index.php/TETRA)
 
 ## ADS-B (aircraft)
 
