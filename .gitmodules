@@ -7,3 +7,6 @@
 [submodule "tools/dump978"]
 	path = tools/dump978
 	url = https://github.com/flightaware/dump978.git
+[submodule "tools/rtl-ais"]
+	path = tools/rtl-ais
+	url = https://github.com/dgiardini/rtl-ais.git
