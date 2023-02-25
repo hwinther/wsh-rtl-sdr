@@ -163,6 +163,8 @@ popd
 ### Links
 
 - [ADS info](http://www.ads-b.com/faq-9.htm)
+- [Flightaware dump1090 ADS-B/ES](https://github.com/flightaware/dump1090)
+- [Flightaware dump978 UAT](https://github.com/flightaware/dump978)
 
 ## AIS (ship location)
 
