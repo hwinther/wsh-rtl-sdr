@@ -4,3 +4,6 @@
 [submodule "tools/dump1090"]
 	path = tools/dump1090
 	url = https://github.com/flightaware/dump1090.git
+[submodule "tools/dump978"]
+	path = tools/dump978
+	url = https://github.com/flightaware/dump978.git
