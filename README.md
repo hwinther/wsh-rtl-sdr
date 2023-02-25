@@ -133,3 +133,4 @@ You can also verify that you have found a TETRA channel with [audio samples](htt
 - [Reddit RTLSDR wiki](https://old.reddit.com/r/RTLSDR/wiki/index)
 - [Interesting NG RTL-SDR LimeSDR, also comparison of HackRF, RTL-SDR and others](https://www.crowdsupply.com/lime-micro/limesdr)
 - [RTL SDR custom drivers for HDSDR](https://github.com/hayguen?tab=repositories)
+- [Osmocom RTL-SDR wiki](https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr)
