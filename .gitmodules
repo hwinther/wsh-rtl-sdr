@@ -1,3 +1,6 @@
 [submodule "tools/dedsecimsi"]
 	path = tools/dedsecimsi
 	url = https://github.com/0xbitx/dedsecimsi.git
+[submodule "tools/dump1090"]
+	path = tools/dump1090
+	url = https://github.com/flightaware/dump1090.git
