@@ -112,11 +112,106 @@ You can also verify that you have found a TETRA channel with [audio samples](htt
 
 ## ADS-B (aircraft)
 
+### Prerequisites
+
+Either the distro dump1090, or the maintained FA version which can be found as a submodule under tools
+
+```bash
+# For dump1090
+apt install TODO
+
+# For dump978
+apt install soapysdr-module-rtlsdr libsoapysdr-dev
+
+```
+
+### Steps
+
+```bash
+# As root, so either prepend sudo or run the following in a root shell
+
+# Configure lighttpd to use dump1090-skyaware
+cp tools/dump1090/debian/lighttpd/{88-dump1090-fa-statcache.conf,89-skyaware.conf} /etc/lighttpd/conf-available
+pushd /etc/lighttpd/conf-enabled
+ln -s ../conf-available/88-dump1090-fa-statcache.conf
+ln -s ../conf-available/89-skyaware.conf
+# if you have an older version of dump1090 via os packages you'll also want to unlink it:
+# rm 89-dump1090.conf
+popd
+
+mkdir -p /usr/share/skyaware/html/
+mkdir -p /run/dump1090-fa/
+mkdir -p /run/skyaware978/
+cp -r tools/dump1090/public_html/* /usr/share/skyaware/html/
+
+systemctl restart lighttpd.service
+
+pushd tools/dump1090
+make
+./dump1090 --net --write-json /run/dump1090-fa/
+popd
+
+# For 978
+pushd tools/dump978
+make
+./dump978-fa --sdr driver=rtlsdr --format CS8 --raw-port 30978 --json-port 30979
+./skyaware978 --connect localhost:30978 --reconnect-interval 30 --history-count 120 --history-interval 30 --json-dir /run/skyaware978/
+popd
+```
+
+### Links
+
+- [ADS info](http://www.ads-b.com/faq-9.htm)
+
 ## AIS (ship location)
+
+### Prerequisites
+
+```bash
+todo
+```
+
+### Steps
+
+```bash
+todo
+```
+
+### Links
+
+- [TODO](#)
 
 ## 433 IOT
 
+### Prerequisites
+
+```bash
+todo
+```
+
+### Steps
+
+```bash
+todo
+```
+
+### Links
+
+- [TODO](#)
+
 ## AMS (power meter OTA/IOT/mesh)
+
+### Prerequisites
+
+```bash
+todo
+```
+
+### Steps
+
+```bash
+todo
+```
 
 ### Links
 
