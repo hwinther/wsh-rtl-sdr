@@ -242,18 +242,27 @@ flatpak run org.opencpn.OpenCPN
 ### Prerequisites
 
 ```bash
-todo
+# Fetch slightly outdated version via OS
+apt install rtl-433
+
+# Or github
+cd tools/rtl_433
+mkdir build && cd build && cmake ..
 ```
 
 ### Steps
 
 ```bash
-todo
+# From path
+rtl_433
+
+# Running directly from tools folder after building
+tools/rtl_433/build/src/rtl_433
 ```
 
 ### Links
 
-- [TODO](#)
+- [RTL 433 github repo](https://github.com/merbanan/rtl_433)
 
 ## AMS (power meter OTA/IOT/mesh)
 
@@ -271,7 +280,7 @@ todo
 
 ### Links
 
-- [RTL AMR](https://github.com/bemasher/rtlamr)
+- [RTL AMR github repo](https://github.com/bemasher/rtlamr)
 - [NKOM AMS info](https://www.nkom.no/fysiske-nett-og-infrastruktur/elektromagnetisk-straling/_/attachment/download/e2080144-5414-455b-8c8e-add667c6ac5a:ce2b3f4e8b5973662d20692f3d04cb55ebc060d3/Avanserte%20m%C3%A5le-%20og%20styringssystemer%20-%20m%C3%A5ling%20av%20eksponering%20og%20sendetid.pdf)
 
 ## Generic links
