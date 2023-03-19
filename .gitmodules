@@ -13,3 +13,6 @@
 [submodule "tools/rtl_433"]
 	path = tools/rtl_433
 	url = https://github.com/merbanan/rtl_433.git
+[submodule "tools/rtlamr"]
+	path = tools/rtlamr
+	url = https://github.com/bemasher/rtlamr
