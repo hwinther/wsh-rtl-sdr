@@ -16,3 +16,6 @@
 [submodule "tools/rtlamr"]
 	path = tools/rtlamr
 	url = https://github.com/bemasher/rtlamr
+[submodule "tools/rtl-sdr-blog"]
+	path = tools/rtl-sdr-blog
+	url = https://github.com/rtlsdrblog/rtl-sdr-blog
