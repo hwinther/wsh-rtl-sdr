@@ -71,7 +71,7 @@ apt install gr-gsm kalibrate-rtl
 kal -s GSM900 -g 49.6
 
 # Look for the strongest channel and use that as a parameter in the following command, note that -s 3.2M is also used to specify the highest available sample rate
-grgsm_livemon -f 945.4M -g 49.g -s 3.2M
+grgsm_livemon -f 945.4M -g 49.6 -s 3.2M
 
 # There is a grgsm_livemon_headless version but it's bugged in my kali install, livemon expects an X output and VNC is useful in this regard
 # grgsm_livemon* will also send data to localhost on the lo interface, which various scripts/apps can use simultaneously, e.g.:
