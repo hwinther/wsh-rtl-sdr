@@ -19,3 +19,9 @@
 [submodule "tools/rtl-sdr-blog"]
 	path = tools/rtl-sdr-blog
 	url = https://github.com/rtlsdrblog/rtl-sdr-blog
+[submodule "tools/kalibrate-rtl"]
+	path = tools/kalibrate-rtl
+	url = https://github.com/steve-m/kalibrate-rtl.git
+[submodule "tools/LTE-Cell-Scanner"]
+	path = tools/LTE-Cell-Scanner
+	url = https://github.com/JiaoXianjun/LTE-Cell-Scanner.git
