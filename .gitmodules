@@ -25,3 +25,6 @@
 [submodule "tools/LTE-Cell-Scanner"]
 	path = tools/LTE-Cell-Scanner
 	url = https://github.com/JiaoXianjun/LTE-Cell-Scanner.git
+[submodule "tools/gps-sdr-sim"]
+	path = tools/gps-sdr-sim
+	url = https://github.com/osqzss/gps-sdr-sim.git
