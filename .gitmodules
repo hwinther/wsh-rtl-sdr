@@ -28,3 +28,15 @@
 [submodule "tools/gps-sdr-sim"]
 	path = tools/gps-sdr-sim
 	url = https://github.com/osqzss/gps-sdr-sim.git
+[submodule "tools/piaware"]
+	path = tools/piaware
+	url = https://github.com/flightaware/piaware.git
+[submodule "tools/AIS-catcher"]
+	path = tools/AIS-catcher
+	url = https://github.com/jvde-github/AIS-catcher.git
+[submodule "tools/tar1090"]
+	path = tools/tar1090
+	url = https://github.com/wiedehopf/tar1090.git
+[submodule "tools/adsb2mqtt"]
+	path = tools/adsb2mqtt
+	url = https://github.com/idatum/adsb2mqtt.git

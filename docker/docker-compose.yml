@@ -1,0 +1,20 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    privileged: false
+    command: ["bash", "-c", "chmod 600 /var/lib/rabbitmq/.erlang.cookie; rabbitmq-plugins enable rabbitmq_mqtt rabbitmq_web_mqtt rabbitmq_stream; rabbitmq-server"]
+    ports:
+        - 5672:5672 # AQMP
+        - 15672:15672 # Web admin
+        - 1883:1883 # MQTT
+        - 15675:15675 # WebMQTT (websocket)
+        - 5552:5552 # Stream
+        - 15692:15692 # Prometheus metrics
+    volumes:
+        - ./docker-volumes/rabbitmq/data/:/var/lib/rabbitmq/mnesia
+        - ./docker-volumes/rabbitmq/log/:/var/log/rabbitmq
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "rabbitcookie"
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+    restart: always
