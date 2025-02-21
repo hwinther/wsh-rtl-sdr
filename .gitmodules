@@ -1,42 +1,48 @@
-[submodule "tools/dedsecimsi"]
-	path = tools/dedsecimsi
-	url = https://github.com/0xbitx/dedsecimsi.git
 [submodule "tools/dump1090"]
 	path = tools/dump1090
-	url = https://github.com/flightaware/dump1090.git
+	url = git@github.com:flightaware/dump1090.git
 [submodule "tools/dump978"]
 	path = tools/dump978
-	url = https://github.com/flightaware/dump978.git
+	url = git@github.com:flightaware/dump978.git
 [submodule "tools/rtl-ais"]
 	path = tools/rtl-ais
-	url = https://github.com/dgiardini/rtl-ais.git
+	url = git@github.com:dgiardini/rtl-ais.git
 [submodule "tools/rtl_433"]
 	path = tools/rtl_433
-	url = https://github.com/merbanan/rtl_433.git
+	url = git@github.com:merbanan/rtl_433.git
 [submodule "tools/rtlamr"]
 	path = tools/rtlamr
-	url = https://github.com/bemasher/rtlamr
+	url = git@github.com:bemasher/rtlamr
 [submodule "tools/rtl-sdr-blog"]
 	path = tools/rtl-sdr-blog
-	url = https://github.com/rtlsdrblog/rtl-sdr-blog
+	url = git@github.com:rtlsdrblog/rtl-sdr-blog
 [submodule "tools/kalibrate-rtl"]
 	path = tools/kalibrate-rtl
-	url = https://github.com/steve-m/kalibrate-rtl.git
+	url = git@github.com:steve-m/kalibrate-rtl.git
 [submodule "tools/LTE-Cell-Scanner"]
 	path = tools/LTE-Cell-Scanner
-	url = https://github.com/JiaoXianjun/LTE-Cell-Scanner.git
+	url = git@github.com:JiaoXianjun/LTE-Cell-Scanner.git
 [submodule "tools/gps-sdr-sim"]
 	path = tools/gps-sdr-sim
-	url = https://github.com/osqzss/gps-sdr-sim.git
+	url = git@github.com:osqzss/gps-sdr-sim.git
 [submodule "tools/piaware"]
 	path = tools/piaware
-	url = https://github.com/flightaware/piaware.git
+	url = git@github.com:flightaware/piaware.git
 [submodule "tools/AIS-catcher"]
 	path = tools/AIS-catcher
-	url = https://github.com/jvde-github/AIS-catcher.git
+	url = git@github.com:jvde-github/AIS-catcher.git
 [submodule "tools/tar1090"]
 	path = tools/tar1090
-	url = https://github.com/wiedehopf/tar1090.git
+	url = git@github.com:wiedehopf/tar1090.git
 [submodule "tools/adsb2mqtt"]
 	path = tools/adsb2mqtt
-	url = https://github.com/idatum/adsb2mqtt.git
+	url = git@github.com:idatum/adsb2mqtt.git
+[submodule "tools/gr-gsm"]
+	path = tools/gr-gsm
+	url = git@github.com:bkerler/gr-gsm.git
+[submodule "tools/vdlm2dec"]
+	path = tools/vdlm2dec
+	url = git@github.com:TLeconte/vdlm2dec.git
+[submodule "tools/libacars"]
+	path = tools/libacars
+	url = git@github.com:szpajder/libacars.git
