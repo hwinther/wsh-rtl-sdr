@@ -1,3 +1,3 @@
 #!/bin/sh
 ./scan.sh
-python auto.py
+python3 auto.py

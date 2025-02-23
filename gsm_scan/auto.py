@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import os
 import sys
 import signal
@@ -24,7 +24,7 @@ def main(filename=None, headless=None, wait_time=None, verbose=None):
         print('scanning %s (%d/%d)' % (freq, i, len(freqs)))
         i += 1
         cmd = f'{grgsm_cmd} -f {freq} -g 49.6 -s 3.2M'
-        cmd2 = 'python imsi.py'
+        cmd2 = 'python3 imsi.py'
         if verbose: print(cmd)
         # print(cmd2)
         timeout_s = 2
@@ -58,8 +58,12 @@ def main(filename=None, headless=None, wait_time=None, verbose=None):
 
         with open(imsi_json_path, 'r') as f:
             data = json.load(f)
-        print('dBm: %s ci: %s operator: %s' % (data['signal_dbm'], data['ci'], data['lookup']['operator']))
-        report[freq] = data
+
+        try:
+            print('dBm: %s ci: %s operator: %s' % (data['signal_dbm'], data['ci'], data['lookup']['operator']))
+            report[freq] = data
+        except:
+            print('failed to parse data:\n%s' % repr(data))
 
         # result = subprocess.call([cmd], shell=True, capture_output=True, text=True, timeout=30)
         # print(result)

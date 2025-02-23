@@ -28,8 +28,11 @@ class ImsiEvil:
     def load_lookup(self):
         self.lookup_table = {}
         data = json.loads(codecs.open('mcc-mnc-list.json', 'r', 'utf-8').read())
+        # data = json.loads(codecs.open('get-mcc-mnc-table.json', 'r', 'utf-8').read())
         for entry in data:
             self.lookup_table[(entry['mcc'], entry['mnc'])] = entry
+            if entry['mnc'][0] == '0':
+                self.lookup_table[(entry['mcc'], str(int(entry['mnc'])))] = entry
 
     def get_imsi(self, capture):
         for packet in capture:
@@ -74,7 +77,7 @@ class ImsiEvil:
                     if hasattr(gsm_a_ccch, "e212.lai.mnc"):
                         # print('mnc=%s' % (repr(gsm_a_ccch.e212_lai_mnc)))
                         self.mnc = gsm_a_ccch.e212_lai_mnc
-   
+
                     if hasattr(gsm_a_ccch, "gsm_a_dtap_msg_rr_type"):
                         # print('TEST: %s' % repr(gsm_a_ccch.gsm_a_dtap_msg_rr_type))
                         self.msg_rr_type = int(gsm_a_ccch.gsm_a_dtap_msg_rr_type, 16)
@@ -99,6 +102,8 @@ class ImsiEvil:
         table_value = None
         if self.mcc != '' and self.mnc != '':
             key=(self.mcc, self.mnc)
+            print('looking up: %s / %s (%s - %s)' %(self.mcc, self.mnc, len(self.lookup_table), key in self.lookup_table))
+            print(next(iter(self.lookup_table)))
             if key in self.lookup_table:
                 table_value = self.lookup_table[key]
 
@@ -107,7 +112,7 @@ class ImsiEvil:
 def main():
     parser = OptionParser(usage="%prog: [options]")
     parser.add_option("-i", "--iface", dest="iface", default="lo", help="Interface (default : lo)")
-    parser.add_option("-p", "--port", dest="port", default="4729", type="int", help="Port (default : 4729)")    
+    parser.add_option("-p", "--port", dest="port", default="4729", type="int", help="Port (default : 4729)")
     parser.add_option("-m", "--imsi", dest="imsi", default="", type="string", help='IMSI to track (default : None, Example: 123456789101112)')
     parser.add_option("-s", "--save", dest="save", default=None, type="string", help="Save all imsi numbers to sqlite file. (default : None)")
     (options, args) = parser.parse_args()
@@ -115,6 +120,7 @@ def main():
     imsi = ImsiEvil()
     imsi.header()
     imsi.load_lookup()
+    # print(imsi.lookup_table[('242', '2')])
     capture = pyshark.LiveCapture(interface=options.iface, bpf_filter="port {} and not icmp and udp".format(options.port))
     values = imsi.get_imsi(capture)
     print(values)
