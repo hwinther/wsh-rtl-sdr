@@ -1,4 +1,4 @@
-FROM debian:bookworm AS base
+FROM debian:trixie AS base
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
@@ -91,7 +91,7 @@ FROM build-gr-gsm AS build-lte-cell-scanner
 WORKDIR /src
 RUN git clone https://github.com/JiaoXianjun/LTE-Cell-Scanner.git
 WORKDIR /src/LTE-Cell-Scanner
-RUN apt-get -y install libitpp-dev opencl-headers && \
+RUN apt-get -y install libitpp-dev opencl-headers libblas-dev liblapack-dev && \
     mkdir build && \
     cd build && \
     cmake ../ -DUSE_BLADERF=1 -DUSE_HACKRF=1 -DUSE_OPENCL=1 && \
@@ -102,7 +102,7 @@ FROM build-lte-cell-scanner AS build-gr-iridium
 WORKDIR /src
 RUN git clone https://github.com/muccc/gr-iridium.git
 WORKDIR /src/gr-iridium
-RUN apt-get -y install gnuradio-dev libvolk2-dev pybind11-dev libsndfile1-dev && \
+RUN apt-get -y install gnuradio-dev libvolk-dev pybind11-dev libsndfile1-dev && \
     cmake -B build && \
     cmake --build build && \
     cmake --install build && \

@@ -1,0 +1,34 @@
+name: Publish gsm-tools image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-gsm-tools.yml"
+      - "docker/Dockerfile"
+
+permissions:
+  packages: write
+
+jobs:
+  publish-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the docker image
+        run: |
+          tag=ghcr.io/hwinther/wsh-rtl-sdr/gsm-tools:13
+          tag_latest=ghcr.io/hwinther/wsh-rtl-sdr/gsm-tools:latest
+          echo tag=$tag tag_latest=$tag_latest
+          docker build docker -t $tag -t $tag_latest -f docker/Dockerfile
+          docker push $tag
+          docker push $tag_latest
