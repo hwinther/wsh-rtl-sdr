@@ -110,10 +110,13 @@ RUN apt-get -y install gnuradio-dev libvolk-dev pybind11-dev libsndfile1-dev && 
 
 FROM build-gr-iridium AS final
 WORKDIR /srv
-RUN apt-get -y install termshark tshark && \
+RUN apt-get -y install termshark tshark tmux && \
     python3 -m venv venv3 && \
     source venv3/bin/activate && \
     pip3 install pyshark
+COPY tmux-gsm-monitor.sh /srv/tmux-gsm-monitor.sh
+RUN chmod +x /srv/tmux-gsm-monitor.sh
+
 ADD https://github.com/zellij-org/zellij/releases/download/v0.41.2/zellij-x86_64-unknown-linux-musl.tar.gz /tmp
 RUN cd /tmp && \
     tar -zxvf /tmp/zellij-x86_64-unknown-linux-musl.tar.gz && \
