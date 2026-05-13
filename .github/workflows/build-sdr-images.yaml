@@ -43,7 +43,7 @@ jobs:
     # matrix entries would each run their own gitversion; same result, but one job is faster
     # and gives one canonical version string.
     version:
-        uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@26fecfde179642e65e6e268de66cd2eaaaa21fa4 # v1.50.0
+        uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@360d2ea7cdb0cb979fbbb612bc0804beb0d16b5e # v1.51.0
 
     sdr-base:
         needs: version
@@ -57,7 +57,7 @@ jobs:
                     - debian_release: buster
                       extra_build_args: |
                           USE_ARCHIVE_REPOS=true
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@26fecfde179642e65e6e268de66cd2eaaaa21fa4 # v1.50.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@360d2ea7cdb0cb979fbbb612bc0804beb0d16b5e # v1.51.0
         with:
             container_image_name_postfix: sdr-base
             build_context: images/sdr-base
@@ -65,6 +65,9 @@ jobs:
             platforms: linux/amd64,linux/arm64
             use_gitversion_tags: false
             additional_tags: ${{ matrix.debian_release }};${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
+            # Disambiguate SBOM workflow artifacts + SARIF category across matrix entries
+            # (otherwise all 4 distros collide on container-image-sdr-base.spdx.json → 409).
+            artifact_name_suffix: ${{ matrix.debian_release }}
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
             build_args: |
                 DEBIAN_RELEASE=${{ matrix.debian_release }}
@@ -86,7 +89,7 @@ jobs:
                     - debian_release: buster
                       extra_build_args: |
                           INSTALL_PYTHON_BUILD_TOOLS=false
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@26fecfde179642e65e6e268de66cd2eaaaa21fa4 # v1.50.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@360d2ea7cdb0cb979fbbb612bc0804beb0d16b5e # v1.51.0
         with:
             container_image_name_postfix: sdr-build
             build_context: images/sdr-build
@@ -94,6 +97,8 @@ jobs:
             platforms: linux/amd64,linux/arm64
             use_gitversion_tags: false
             additional_tags: ${{ matrix.debian_release }};${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
+            # Disambiguate SBOM workflow artifacts + SARIF category across matrix entries.
+            artifact_name_suffix: ${{ matrix.debian_release }}
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
             # SDR_BASE pulls sdr-base by the floating distro tag pushed by the sdr-base job
             # above. Acceptable for homelab scale; for stricter reproducibility, refactor
