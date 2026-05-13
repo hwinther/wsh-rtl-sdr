@@ -43,7 +43,7 @@ jobs:
     # matrix entries would each run their own gitversion; same result, but one job is faster
     # and gives one canonical version string.
     version:
-        uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@360d2ea7cdb0cb979fbbb612bc0804beb0d16b5e # v1.51.0
+        uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
 
     sdr-base:
         needs: version
@@ -57,7 +57,7 @@ jobs:
                     - debian_release: buster
                       extra_build_args: |
                           USE_ARCHIVE_REPOS=true
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@360d2ea7cdb0cb979fbbb612bc0804beb0d16b5e # v1.51.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
         with:
             container_image_name_postfix: sdr-base
             build_context: images/sdr-base
@@ -89,7 +89,7 @@ jobs:
                     - debian_release: buster
                       extra_build_args: |
                           INSTALL_PYTHON_BUILD_TOOLS=false
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@360d2ea7cdb0cb979fbbb612bc0804beb0d16b5e # v1.51.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
         with:
             container_image_name_postfix: sdr-build
             build_context: images/sdr-build
