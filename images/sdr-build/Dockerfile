@@ -1,50 +1,26 @@
 # syntax=docker/dockerfile:1
 #
-# Parameterized SDR build image (full Debian, not -slim — adds the SDR build toolchain on
-# top of the runtime stage). Same parameterization as images/sdr-base/Dockerfile.
+# Parameterized SDR build image: extends sdr-base with the SDR build toolchain (autotools,
+# CMake, debhelper, boost, librtlsdr-dev, libhackrf-dev, …) and optionally python3-build/dev
+# tooling. One Dockerfile, multiple Debian releases.
 #
-# Build:   docker build --build-arg DEBIAN_RELEASE=trixie .
-# Buster:  add --build-arg USE_ARCHIVE_REPOS=true --build-arg INSTALL_PYTHON_BUILD_TOOLS=false
-#          (buster's apt repo lacks `python3-build`; other python3-* packages were not
-#          installed on buster historically, so the whole block stays off for parity.)
+# Inherits from sdr-base/Dockerfile, so the apt upgrade, USE_ARCHIVE_REPOS sources rewrite,
+# /srv/target.* metadata, and s6-overlay are all in place via the parent image.
 #
-# Used by:
-# - Feeder image builds in this repo (dump1090-fa, piaware, tar1090, AIS-catcher, …)
-# - docker/Dockerfile (gsm-tools) — once that image is refactored to FROM this base instead
-#   of re-installing the same lib*-dev + python3-* set inline.
+# Build:   docker build \
+#              --build-arg DEBIAN_RELEASE=trixie \
+#              --build-arg SDR_BASE=ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie .
+# Buster:  add --build-arg INSTALL_PYTHON_BUILD_TOOLS=false
+#          (python3-build is not packaged on buster).
 
 ARG DEBIAN_RELEASE=trixie
+ARG SDR_BASE=ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:${DEBIAN_RELEASE}
 
-FROM debian:${DEBIAN_RELEASE} AS base
+FROM ${SDR_BASE} AS base
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
-ENV DEBIAN_FRONTEND=noninteractive
-SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
 
-ARG USE_ARCHIVE_REPOS=false
-RUN set -eux; \
-    if [ "${USE_ARCHIVE_REPOS}" = "true" ]; then \
-        sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive.debian.org|g' \
-            /etc/apt/sources.list 2>/dev/null || true; \
-        if [ -d /etc/apt/sources.list.d ]; then \
-            sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive.debian.org|g' \
-                /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
-        fi; \
-    fi; \
-    apt-get update; \
-    apt-get -y full-upgrade
-
-FROM base AS runtime
-ARG TARGETPLATFORM
-ARG TARGETARCH
-ARG TARGETVARIANT
-RUN echo ${TARGETPLATFORM} > /srv/target.platform && \
-    echo ${TARGETARCH} > /srv/target.arch && \
-    echo ${TARGETVARIANT} > /srv/target.variant && \
-    apt-get -y install curl gettext-base nano net-tools procps socat wget xz-utils && \
-    apt-get clean
-
-FROM runtime AS install-build-deps
-RUN apt-get -y install \
+FROM base AS install-build-deps
+RUN apt-get update && apt-get -y install \
     autoconf \
     build-essential \
     cmake \

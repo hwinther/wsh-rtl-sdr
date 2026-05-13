@@ -71,16 +71,20 @@ jobs:
                 ${{ matrix.extra_build_args }}
 
     sdr-build:
-        needs: version
+        # sdr-build now FROM sdr-base, so the full sdr-base matrix must publish before
+        # sdr-build can pull its parent image from GHCR. All sdr-base distros gate all
+        # sdr-build distros — finer-grained per-distro pairing isn't supported by GitHub
+        # Actions matrix needs:, but the simpler graph is fine for this scale.
+        needs: [version, sdr-base]
         strategy:
             fail-fast: false
             matrix:
                 debian_release: [buster, bullseye, bookworm, trixie]
-                # buster: archive.debian.org + skip python3-build (not packaged on buster).
+                # buster: skip python3-build (not packaged on buster). USE_ARCHIVE_REPOS
+                # is handled by sdr-base; sdr-build inherits the already-rewritten sources.
                 include:
                     - debian_release: buster
                       extra_build_args: |
-                          USE_ARCHIVE_REPOS=true
                           INSTALL_PYTHON_BUILD_TOOLS=false
         uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@26fecfde179642e65e6e268de66cd2eaaaa21fa4 # v1.50.0
         with:
@@ -91,6 +95,10 @@ jobs:
             use_gitversion_tags: false
             additional_tags: ${{ matrix.debian_release }};${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
+            # SDR_BASE pulls sdr-base by the floating distro tag pushed by the sdr-base job
+            # above. Acceptable for homelab scale; for stricter reproducibility, refactor
+            # sdr-base to emit per-distro digest outputs and consume them here.
             build_args: |
                 DEBIAN_RELEASE=${{ matrix.debian_release }}
+                SDR_BASE=ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:${{ matrix.debian_release }}
                 ${{ matrix.extra_build_args }}
