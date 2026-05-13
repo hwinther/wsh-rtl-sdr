@@ -1,0 +1,72 @@
+name: Tag and release
+
+# Manually dispatched: creates a v* tag (or auto-bumps minor from latest), optionally a
+# GitHub Release, then dispatches the container build workflows against the new tag.
+# Tag-push from GITHUB_TOKEN does not fire on.push.tags, so the per-image workflows are
+# dispatched explicitly here.
+
+on:
+    workflow_dispatch:
+        inputs:
+            tag_name:
+                description: "Tag name (e.g. v1.2.3, or 'auto' to bump minor from the latest tag)"
+                required: false
+                default: "auto"
+            release_notes:
+                description: "Release notes for this tag"
+                required: false
+            create_release:
+                description: "Create a GitHub Release for this tag"
+                required: false
+                default: "true"
+
+permissions:
+    contents: write
+    # Required so we can dispatch container workflows after tagging (tag push from
+    # GITHUB_TOKEN does not fire on.push.tags).
+    actions: write
+
+jobs:
+    tag:
+        # No `secrets:` block: the reusable tag-and-release.yml uses only GITHUB_TOKEN
+        # (auto-available to called workflows). Avoids the zizmor "secrets unconditionally
+        # inherited" finding.
+        uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@26fecfde179642e65e6e268de66cd2eaaaa21fa4 # v1.50.0
+        with:
+            tag_name: ${{ inputs.tag_name }}
+            release_notes: ${{ inputs.release_notes }}
+            create_release: ${{ inputs.create_release }}
+
+    trigger-container-builds:
+        needs: tag
+        if: success()
+        runs-on: ubuntu-latest
+        permissions:
+            actions: write
+            contents: read
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  fetch-depth: 0
+
+            - name: Determine ref for container builds
+              id: ref
+              run: |
+                  git fetch --tags --force
+                  TAG="${{ inputs.tag_name }}"
+                  if [ "$TAG" = "auto" ] || [ -z "$TAG" ]; then
+                    REF=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+                  else
+                    REF="$TAG"
+                  fi
+                  if [ -z "$REF" ]; then
+                    echo "::error::Could not resolve a tag ref for container builds."
+                    exit 1
+                  fi
+                  echo "Using ref: $REF"
+                  echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+            - name: Dispatch sdr-base and sdr-build container workflow
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh workflow run build-sdr-images.yaml --ref "${{ steps.ref.outputs.ref }}"
