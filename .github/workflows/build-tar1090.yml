@@ -1,7 +1,7 @@
-name: Build opensky container image
+name: Build tar1090 container image
 
-# Feeder image (consumes sdr-base/sdr-build:buster — archived Debian). Triggers + pipeline
-# shape match build-dump1090-fa.yaml — see that file for the full Option 2 rationale.
+# Feeder image (consumes sdr-base:bookworm, runtime-only). Triggers + pipeline shape match
+# build-dump1090-fa.yml — see that file for the full Option 2 rationale.
 
 on:
     workflow_dispatch:
@@ -13,8 +13,8 @@ on:
     push:
         branches: [main]
         paths:
-            - "images/opensky/**"
-            - ".github/workflows/build-opensky.yaml"
+            - "images/tar1090/**"
+            - ".github/workflows/build-tar1090.yml"
 
 permissions:
     contents: read
@@ -30,11 +30,11 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    opensky:
+    tar1090:
         uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
         with:
-            container_image_name_postfix: opensky
-            build_context: images/opensky
-            dockerfile: images/opensky/Dockerfile
+            container_image_name_postfix: tar1090
+            build_context: images/tar1090
+            dockerfile: images/tar1090/Dockerfile
             platforms: linux/amd64,linux/arm64
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

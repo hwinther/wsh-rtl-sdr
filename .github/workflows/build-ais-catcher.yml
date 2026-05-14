@@ -1,7 +1,8 @@
-name: Build fr24 container image
+name: Build ais-catcher container image
 
-# Feeder image (consumes sdr-base:bookworm, runtime-only). Triggers + pipeline shape
-# match build-dump1090-fa.yaml — see that file for the full Option 2 trigger rationale.
+# Feeder image. Unlike the ADSB feeders this one consumes upstream ghcr.io/jvde-github/ais-catcher
+# directly (not sdr-base/sdr-build) — see images/ais-catcher/Dockerfile. Same trigger shape
+# and pipeline as the others.
 
 on:
     workflow_dispatch:
@@ -13,8 +14,8 @@ on:
     push:
         branches: [main]
         paths:
-            - "images/fr24/**"
-            - ".github/workflows/build-fr24.yaml"
+            - "images/ais-catcher/**"
+            - ".github/workflows/build-ais-catcher.yml"
 
 permissions:
     contents: read
@@ -30,11 +31,11 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    fr24:
+    ais-catcher:
         uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
         with:
-            container_image_name_postfix: fr24
-            build_context: images/fr24
-            dockerfile: images/fr24/Dockerfile
+            container_image_name_postfix: ais-catcher
+            build_context: images/ais-catcher
+            dockerfile: images/ais-catcher/Dockerfile
             platforms: linux/amd64,linux/arm64
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

@@ -5,7 +5,7 @@ name: Build dump1090-fa container image
 #   - workflow_dispatch — ad-hoc rebuilds
 #   - push to main on path change — Dockerfile or workflow edits, OR Dependabot PR merges
 #     that bump the pinned sdr-base/sdr-build digests in the Dockerfile.
-# NOT dispatched from tag-and-release.yaml. NOT scheduled — relies on Dependabot for
+# NOT dispatched from tag-and-release.yml. NOT scheduled — relies on Dependabot for
 # parent-image refresh cadence.
 #
 # Pipeline (via reusable docker-container.yml): gitversion → buildx multi-arch → SBOM →
@@ -23,7 +23,7 @@ on:
         branches: [main]
         paths:
             - "images/dump1090-fa/**"
-            - ".github/workflows/build-dump1090-fa.yaml"
+            - ".github/workflows/build-dump1090-fa.yml"
 
 permissions:
     contents: read

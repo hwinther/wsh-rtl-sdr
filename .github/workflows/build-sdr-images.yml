@@ -22,11 +22,11 @@ name: Build sdr-base and sdr-build container images
 #      manifest digest from the registry, download the SBOM + Grype artifacts, call the
 #      `sign-image` composite. Because the composite runs inline here (not inside the
 #      reusable repo), the cosign keyless cert SAN is THIS workflow's ref:
-#        https://github.com/hwinther/wsh-rtl-sdr/.github/workflows/build-sdr-images.yaml@<ref>
+#        https://github.com/hwinther/wsh-rtl-sdr/.github/workflows/build-sdr-images.yml@<ref>
 #
 # Net result: ONE cosign signature per image with this workflow's Fulcio identity. Verify:
 #   cosign verify --certificate-identity-regexp \
-#     '^https://github\.com/hwinther/wsh-rtl-sdr/\.github/workflows/build-sdr-images\.yaml@' \
+#     '^https://github\.com/hwinther/wsh-rtl-sdr/\.github/workflows/build-sdr-images\.yml@' \
 #     ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie
 #
 # Tagging: each matrix entry publishes a full per-distro tag set:
@@ -49,7 +49,7 @@ on:
         paths:
             - "images/sdr-base/**"
             - "images/sdr-build/**"
-            - ".github/workflows/build-sdr-images.yaml"
+            - ".github/workflows/build-sdr-images.yml"
     schedule:
         # Monday 06:00 UTC — early week so any pickup-related failures land during the
         # working week, not Friday evening. Adjust freely; the exact hour isn't load-bearing.

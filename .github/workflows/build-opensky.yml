@@ -1,8 +1,7 @@
-name: Build ais-catcher container image
+name: Build opensky container image
 
-# Feeder image. Unlike the ADSB feeders this one consumes upstream ghcr.io/jvde-github/ais-catcher
-# directly (not sdr-base/sdr-build) — see images/ais-catcher/Dockerfile. Same trigger shape
-# and pipeline as the others.
+# Feeder image (consumes sdr-base/sdr-build:buster — archived Debian). Triggers + pipeline
+# shape match build-dump1090-fa.yml — see that file for the full Option 2 rationale.
 
 on:
     workflow_dispatch:
@@ -14,8 +13,8 @@ on:
     push:
         branches: [main]
         paths:
-            - "images/ais-catcher/**"
-            - ".github/workflows/build-ais-catcher.yaml"
+            - "images/opensky/**"
+            - ".github/workflows/build-opensky.yml"
 
 permissions:
     contents: read
@@ -31,11 +30,11 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    ais-catcher:
+    opensky:
         uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
         with:
-            container_image_name_postfix: ais-catcher
-            build_context: images/ais-catcher
-            dockerfile: images/ais-catcher/Dockerfile
+            container_image_name_postfix: opensky
+            build_context: images/opensky
+            dockerfile: images/opensky/Dockerfile
             platforms: linux/amd64,linux/arm64
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

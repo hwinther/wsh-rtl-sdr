@@ -51,9 +51,10 @@ jobs:
 
             - name: Determine ref for container builds
               id: ref
+              env:
+                  TAG: ${{ inputs.tag_name }}
               run: |
                   git fetch --tags --force
-                  TAG="${{ inputs.tag_name }}"
                   if [ "$TAG" = "auto" ] || [ -z "$TAG" ]; then
                     REF=$(git tag -l 'v*' --sort=-v:refname | head -n1)
                   else
@@ -66,7 +67,7 @@ jobs:
                   echo "Using ref: $REF"
                   echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
-            # Per Option 2: base images (build-sdr-images.yaml) AND feeders (build-*.yaml,
+            # Per Option 2: base images (build-sdr-images.yml) AND feeders (build-*.yml,
             # 7 of them) are intentionally NOT dispatched from here. Base images rebuild on
             # their own cadence (path changes + weekly cron + manual). Feeders rebuild on
             # their own path triggers + Dependabot PR merges that bump the pinned parent
@@ -75,4 +76,5 @@ jobs:
             - name: Dispatch gsm-tools container workflow
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh workflow run build-gsm-tools.yaml --ref "${{ steps.ref.outputs.ref }}"
+                  REF: ${{ steps.ref.outputs.ref }}
+              run: gh workflow run build-gsm-tools.yml --ref "$REF"
