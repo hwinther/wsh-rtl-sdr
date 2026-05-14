@@ -1,0 +1,35 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+- package-ecosystem: "github-actions"
+  directories:
+  - "/"
+  open-pull-requests-limit: 20
+  target-branch: "main"
+  schedule:
+    interval: "weekly"
+    day: "monday"
+  cooldown:
+    default-days: 7
+  groups:
+    reusable-workflows:
+      patterns:
+      - "hwinther/reusable-workflows/*"
+
+- package-ecosystem: "docker"
+  directories:
+  - "/images/adsbexchange"
+  - "/images/dump1090-fa"
+  - "/images/fr24"
+  - "/images/opensky"
+  - "/images/piaware"
+  - "/images/tar1090"
+  - "/images/ais-catcher"
+  - "/images/sdr-base"
+  - "/images/sdr-build"
+  - "/images/gsm-tools"
+  schedule:
+    interval: "daily"
+  open-pull-requests-limit: 20

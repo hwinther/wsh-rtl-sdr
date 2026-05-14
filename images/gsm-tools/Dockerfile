@@ -11,14 +11,10 @@
 # This image is monolithic — build deps remain in the final layer because it's used
 # as an interactive container (`docker exec` into it), not a discardable build stage.
 #
-# Once sdr-build is published publicly, pin SDR_BUILD by digest for reproducibility:
-#   docker buildx imagetools inspect ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie \
-#       --format '{{ .Manifest.Digest }}'
-# then set SDR_BUILD=ghcr.io/hwinther/wsh-rtl-sdr/sdr-build@sha256:<digest>.
-
-ARG SDR_BUILD=ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie
-
-FROM ${SDR_BUILD} AS base
+# Digest-pinned so Dependabot's docker ecosystem tracks sdr-build updates.
+# The tag (`:trixie`) tells Dependabot which channel to follow; the digest is the actual
+# pin Docker resolves at build time. Dependabot opens PRs when the tag's digest advances.
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:f4e598858e26521d50c57a728f381dd9ff670d2e59f3de71f34258ae1c8418a3 AS base
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
 

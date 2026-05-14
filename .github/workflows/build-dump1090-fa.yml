@@ -1,0 +1,49 @@
+name: Build dump1090-fa container image
+
+# Feeder image (consumes sdr-base/sdr-build:bullseye, see images/dump1090-fa/Dockerfile).
+# Triggers per Option 2:
+#   - workflow_dispatch — ad-hoc rebuilds
+#   - push to main on path change — Dockerfile or workflow edits, OR Dependabot PR merges
+#     that bump the pinned sdr-base/sdr-build digests in the Dockerfile.
+# NOT dispatched from tag-and-release.yml. NOT scheduled — relies on Dependabot for
+# parent-image refresh cadence.
+#
+# Pipeline (via reusable docker-container.yml): gitversion → buildx multi-arch → SBOM →
+# Grype → push → cosign keyless sign (reusable identity) → CycloneDX/vuln attestations →
+# SLSA build provenance.
+
+on:
+    workflow_dispatch:
+        inputs:
+            grype_fail_build:
+                description: "Fail the build if Grype finds vulnerabilities"
+                type: boolean
+                default: true
+    push:
+        branches: [main]
+        paths:
+            - "images/dump1090-fa/**"
+            - ".github/workflows/build-dump1090-fa.yml"
+
+permissions:
+    contents: read
+    packages: write
+    id-token: write
+    attestations: write
+    actions: write
+    security-events: write
+    pull-requests: write
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    dump1090-fa:
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+        with:
+            container_image_name_postfix: dump1090-fa
+            build_context: images/dump1090-fa
+            dockerfile: images/dump1090-fa/Dockerfile
+            platforms: linux/amd64,linux/arm64
+            grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

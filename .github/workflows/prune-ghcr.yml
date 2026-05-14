@@ -1,0 +1,37 @@
+name: Prune GHCR images
+
+# Smart GHCR pruner via the reusable prune-ghcr.yml. Deletes:
+#   - untagged manifests that aren't OCI 1.1 referrers (attestations are kept)
+#   - tagged manifests whose only tags are GitVersion prerelease semvers
+#     (X.Y.Z-<label>.<n>) for branches that no longer exist on origin
+#   - cosign legacy sha256-XXXX.{sig,att,sbom} tags whose parent manifest is
+#     itself being deleted in the same run
+# Anything unrecognised is KEPT (fail-safe).
+
+on:
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: "Dry run — print what would be deleted without deleting"
+                type: boolean
+                default: false
+    schedule:
+        # Sunday 04:00 UTC — runs outside the working week and before Monday's
+        # base-image cron (build-sdr-images.yml runs at 06:00 UTC Monday).
+        - cron: "0 4 * * 0"
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    prune:
+        uses: hwinther/reusable-workflows/.github/workflows/prune-ghcr.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+        with:
+            # workflow_dispatch supplies inputs.dry_run; cron leaves it null and the
+            # || false fallback makes scheduled runs actually prune.
+            dry_run: ${{ inputs.dry_run || false }}
+            # Filter discovery to GHCR packages under this repo. Currently:
+            # sdr-base, sdr-build, gsm-tools + 7 feeders (adsbexchange, ais-catcher,
+            # dump1090-fa, fr24, opensky, piaware, tar1090) — all under wsh-rtl-sdr/.
+            package_namespace_prefix: wsh-rtl-sdr/

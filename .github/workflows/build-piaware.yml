@@ -1,0 +1,40 @@
+name: Build piaware container image
+
+# Feeder image (consumes sdr-base/sdr-build:bookworm). Triggers + pipeline shape match
+# build-dump1090-fa.yml — see that file for the full Option 2 trigger rationale.
+
+on:
+    workflow_dispatch:
+        inputs:
+            grype_fail_build:
+                description: "Fail the build if Grype finds vulnerabilities"
+                type: boolean
+                default: true
+    push:
+        branches: [main]
+        paths:
+            - "images/piaware/**"
+            - ".github/workflows/build-piaware.yml"
+
+permissions:
+    contents: read
+    packages: write
+    id-token: write
+    attestations: write
+    actions: write
+    security-events: write
+    pull-requests: write
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    piaware:
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+        with:
+            container_image_name_postfix: piaware
+            build_context: images/piaware
+            dockerfile: images/piaware/Dockerfile
+            platforms: linux/amd64,linux/arm64
+            grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

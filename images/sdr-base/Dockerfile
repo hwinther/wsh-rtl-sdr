@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
 # Parameterized SDR runtime base image. One Dockerfile, multiple Debian releases —
-# the matrix in .github/workflows/build-sdr-images.yaml drives DEBIAN_RELEASE.
+# the matrix in .github/workflows/build-sdr-images.yml drives DEBIAN_RELEASE.
 #
 # Build:   docker build --build-arg DEBIAN_RELEASE=trixie .
 # Buster:  add --build-arg USE_ARCHIVE_REPOS=true (buster has been moved to archive.debian.org).
