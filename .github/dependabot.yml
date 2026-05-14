@@ -29,6 +29,7 @@ updates:
   - "/images/ais-catcher"
   - "/images/sdr-base"
   - "/images/sdr-build"
+  - "/images/gsm-tools"
   schedule:
     interval: "daily"
   open-pull-requests-limit: 20

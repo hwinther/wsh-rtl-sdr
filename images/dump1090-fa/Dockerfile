@@ -1,6 +1,6 @@
-ARG DOCKER_REGISTRY=ghcr.io/hwinther/proxmox/sdr/
-FROM ${DOCKER_REGISTRY}sdr-base-wsh:bullseye AS runtime
-FROM ${DOCKER_REGISTRY}sdr-build-wsh:bullseye AS build
+# Digest-pinned so Dependabot tracks sdr-base/sdr-build updates.
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bullseye@sha256:80db9b388c695e45704c097716cb3a2403431bc3e176c9ec342607bec2ab84a0 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bullseye@sha256:6ac37e8f1fa3b8cb842204d4ae2812d4d6d7b024eac6883613cccac53e2845d1 AS build
 
 FROM build AS build-dump1090-fa
 WORKDIR /src

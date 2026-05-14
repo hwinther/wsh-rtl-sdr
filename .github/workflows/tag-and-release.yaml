@@ -1,7 +1,7 @@
 name: Tag and release
 
 # Manually dispatched: creates a v* tag (or auto-bumps minor from latest), optionally a
-# GitHub Release, then dispatches the container build workflows against the new tag.
+# GitHub Release, then dispatches container build workflows against the new tag.
 # Tag-push from GITHUB_TOKEN does not fire on.push.tags, so the per-image workflows are
 # dispatched explicitly here.
 
@@ -66,11 +66,13 @@ jobs:
                   echo "Using ref: $REF"
                   echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
-            # build-sdr-images.yaml is intentionally NOT dispatched from here — it has its
-            # own triggers (path changes on main + weekly cron + workflow_dispatch). The
-            # base images rebuild on their own cadence; this release workflow only rebuilds
-            # app images that genuinely change per release tag.
+            # Per Option 2: base images (build-sdr-images.yaml) AND feeders (build-*.yaml,
+            # 7 of them) are intentionally NOT dispatched from here. Base images rebuild on
+            # their own cadence (path changes + weekly cron + manual). Feeders rebuild on
+            # their own path triggers + Dependabot PR merges that bump the pinned parent
+            # image digests in their Dockerfiles. Only gsm-tools is release-dispatched
+            # because it's the human-consumed image whose semver release matters.
             - name: Dispatch gsm-tools container workflow
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh workflow run publish-gsm-tools.yml --ref "${{ steps.ref.outputs.ref }}"
+              run: gh workflow run build-gsm-tools.yaml --ref "${{ steps.ref.outputs.ref }}"

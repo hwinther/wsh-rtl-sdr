@@ -1,5 +1,5 @@
-ARG DOCKER_REGISTRY=ghcr.io/hwinther/proxmox/sdr/
-FROM ${DOCKER_REGISTRY}sdr-base-wsh:bookworm AS runtime
+# Digest-pinned so Dependabot tracks sdr-base updates. Runtime-only feeder (no compile step).
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bookworm@sha256:ceff4a5d96c64d590aa911986e09374d77295110237ce441283239bbcfde418b AS runtime
 
 FROM runtime AS install-flightradar24
 ARG TARGETPLATFORM

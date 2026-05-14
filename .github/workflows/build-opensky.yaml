@@ -1,61 +1,40 @@
-name: Publish opensky docker image
+name: Build opensky container image
+
+# Feeder image (consumes sdr-base/sdr-build:buster — archived Debian). Triggers + pipeline
+# shape match build-dump1090-fa.yaml — see that file for the full Option 2 rationale.
 
 on:
     workflow_dispatch:
+        inputs:
+            grype_fail_build:
+                description: "Fail the build if Grype finds vulnerabilities"
+                type: boolean
+                default: true
     push:
-        branches: [ "main" ]
-        tags: [ "v*" ]
+        branches: [main]
         paths:
+            - "images/opensky/**"
             - ".github/workflows/build-opensky.yaml"
-            - "compose/templates/adsb/opensky/**"
 
 permissions:
     contents: read
     packages: write
     id-token: write
     attestations: write
+    actions: write
+    security-events: write
+    pull-requests: write
 
 concurrency:
-    group: ${{ github.ref }}-opensky
-    cancel-in-progress: true
-
-env:
-    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    PACKAGE_NAME: opensky-wsh
-    PACKAGE_PATH: /sdr/adsb/
-    PACKAGE_DESCRIPTION: "ADSB Exchange feeder for WSH"
-    PACKAGE_VENDOR: WSH
-    WORKING_DIRECTORY: compose/templates/adsb/opensky
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
 
 jobs:
-    publish-docker-image:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              with:
-                  fetch-depth: 0
-
-            - name: Remove v prefix in tag
-              id: remove-v-prefix
-              uses: ./.github/actions/git-tag-remove-prefix
-
-            - name: Check for changes in the specified path between tags
-              id: git-tag-diff
-              uses: ./.github/actions/git-tag-diff
-              with:
-                  file_path: ${{ env.WORKING_DIRECTORY }}
-
-            - name: Build and push docker image
-              uses: ./.github/actions/docker
-              # if: ${{ steps.git-tag-diff.outputs.skip == 'false' }}
-              with:
-                  package_name: ${{ env.PACKAGE_NAME }}
-                  package_path: ${{ env.PACKAGE_PATH }}
-                  package_description: ${{ env.PACKAGE_DESCRIPTION }}
-                  package_vendor: ${{ env.PACKAGE_VENDOR }}
-                  working_directory: ${{ env.WORKING_DIRECTORY }}
-                  push_condition: ${{ github.event_name != 'pull_request' }}
-                  latest_tag_enabled: ${{ !startsWith(github.ref, 'refs/tags/') }}
-                  tag: ${{ startsWith(github.ref, 'refs/tags/') &&
-                      steps.remove-v-prefix.outputs.tag || '' }}
-                  attest_supply_chain: "true"
+    opensky:
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+        with:
+            container_image_name_postfix: opensky
+            build_context: images/opensky
+            dockerfile: images/opensky/Dockerfile
+            platforms: linux/amd64,linux/arm64
+            grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

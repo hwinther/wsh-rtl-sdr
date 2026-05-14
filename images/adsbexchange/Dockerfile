@@ -1,6 +1,8 @@
-ARG DOCKER_REGISTRY=ghcr.io/hwinther/proxmox/sdr/
-FROM ${DOCKER_REGISTRY}sdr-base-wsh:bookworm AS runtime
-FROM ${DOCKER_REGISTRY}sdr-build-wsh:bookworm AS build
+# Digest-pinned so Dependabot's docker ecosystem can track updates. Dependabot will open
+# PRs when sdr-base:bookworm / sdr-build:bookworm digests advance in the registry (which
+# happens whenever images/sdr-{base,build} or upstream debian:bookworm-slim updates).
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bookworm@sha256:ceff4a5d96c64d590aa911986e09374d77295110237ce441283239bbcfde418b AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bookworm@sha256:0c5cd221e16ddfa71f4cd6b737a61a7423fb56eea436d6d33a1be688cad73467 AS build
 
 FROM build AS build-adsbexchange
 

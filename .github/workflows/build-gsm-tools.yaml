@@ -1,9 +1,10 @@
 name: Build gsm-tools container image
 
-# Dispatched by tag-and-release.yml after a v* tag is created (push from GITHUB_TOKEN does
+# Dispatched by tag-and-release.yaml after a v* tag is created (push from GITHUB_TOKEN does
 # not fire on.push.tags), and runnable manually for ad-hoc rebuilds. gsm-tools is FROM
-# sdr-build:trixie, which rebuilds on its own cadence in build-sdr-images.yaml (path changes
-# + weekly cron + manual). gsm-tools picks up whichever sdr-build:trixie was last published.
+# sdr-build:trixie (digest-pinned in images/gsm-tools/Dockerfile so Dependabot tracks
+# base-image updates). The parent sdr-build:trixie rebuilds on its own cadence in
+# build-sdr-images.yaml (path changes + weekly cron + manual).
 #
 # Pipeline (via the reusable docker-container.yml): gitversion → buildx (multi-arch) → SBOM
 # → Grype → push → cosign keyless sign → CycloneDX/vuln attestations → SLSA provenance.
@@ -15,6 +16,11 @@ on:
                 description: "Fail the build if Grype finds vulnerabilities"
                 type: boolean
                 default: true
+    push:
+        branches: [main]
+        paths:
+            - "images/gsm-tools/**"
+            - ".github/workflows/build-gsm-tools.yaml"
 
 permissions:
     contents: read
@@ -34,7 +40,7 @@ jobs:
         uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
         with:
             container_image_name_postfix: gsm-tools
-            build_context: docker
-            dockerfile: docker/Dockerfile
+            build_context: images/gsm-tools
+            dockerfile: images/gsm-tools/Dockerfile
             platforms: linux/amd64,linux/arm64
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
