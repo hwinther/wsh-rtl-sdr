@@ -13,28 +13,29 @@ name: Build sdr-base and sdr-build container images
 #     up the freshened base on their next rebuild.
 #
 # Pipeline (per matrix entry):
-#   1. {sdr-base,sdr-build}  — docker-container.yml builds + scans + pushes + signs (with
-#      the reusable's Fulcio identity). Also uploads CycloneDX SBOM + Grype JSON as
-#      matrix-disambiguated workflow artifacts via `artifact_name_suffix`.
+#   1. {sdr-base,sdr-build}  — docker-container.yml builds + scans + pushes (NO signing).
+#      Uploads CycloneDX SBOM + Grype JSON as matrix-disambiguated workflow artifacts via
+#      `artifact_name_suffix`. v1.54.0 decoupled SBOM/Grype generation from cosign signing,
+#      so we can keep cosign_sign_enabled: false without losing the artifacts the sign
+#      jobs need to download.
 #   2. {sdr-base-sign,sdr-build-sign}  — this workflow's own jobs. Resolve the post-push
 #      manifest digest from the registry, download the SBOM + Grype artifacts, call the
 #      `sign-image` composite. Because the composite runs inline here (not inside the
 #      reusable repo), the cosign keyless cert SAN is THIS workflow's ref:
 #        https://github.com/hwinther/wsh-rtl-sdr/.github/workflows/build-sdr-images.yaml@<ref>
-#      — narrowing the trust scope from "any caller of reusable v1.53.0" to "wsh-rtl-sdr".
 #
-# Net result: every published image carries TWO cosign signatures (reusable identity +
-# consumer identity). Verifiers can pin to either via `cosign verify
-# --certificate-identity-regexp '…'`. See comment on each sdr-{base,build} job for why
-# the reusable signing can't be turned off independently in v1.53.0.
+# Net result: ONE cosign signature per image with this workflow's Fulcio identity. Verify:
+#   cosign verify --certificate-identity-regexp \
+#     '^https://github\.com/hwinther/wsh-rtl-sdr/\.github/workflows/build-sdr-images\.yaml@' \
+#     ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie
 #
-# Tagging: each matrix entry publishes two tags so:
-#   - the bare distro tag (e.g. `:trixie`) always points at the newest published build for
-#     that distro+role — this is what feeders consume floatingly,
-#   - the version-suffixed distro tag (e.g. `:trixie-1.2.3` or `:trixie-1.2.4-alpha.7-main`)
-#     is an immutable per-run reference for digest-pinned consumers.
-# Each matrix entry's version-suffixed tag is unique (distro disambiguates), so there is no
-# tag-race contention between the four distros pushing under the same gitversion output.
+# Tagging: each matrix entry publishes a full per-distro tag set:
+#   - the bare distro tag (e.g. `:trixie`, via additional_tags) — floating pointer that
+#     feeders and gsm-tools consume,
+#   - the gitversion-derived tags with a `-${distro}` suffix appended (e.g.
+#     `:1.2.3-trixie`, `:1.2-trixie`, `:1-trixie`, `:main-trixie`) via v1.55.0's
+#     tag_suffix input — race-safe across matrix entries because the distro suffix
+#     disambiguates the otherwise-shared gitversion output.
 
 on:
     workflow_dispatch:
@@ -176,7 +177,7 @@ jobs:
         # Run when: non-cron trigger (precheck short-circuits to changed=true), upstream
         # genuinely changed, or precheck failed (defensive — never silently skip).
         if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
-        uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
+        uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
 
     sdr-base:
         needs: version
@@ -190,27 +191,27 @@ jobs:
                     - debian_release: buster
                       extra_build_args: |
                           USE_ARCHIVE_REPOS=true
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
         with:
             container_image_name_postfix: sdr-base
             build_context: images/sdr-base
             dockerfile: images/sdr-base/Dockerfile
             platforms: linux/amd64,linux/arm64
-            use_gitversion_tags: false
-            additional_tags: ${{ matrix.debian_release }};${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
-            # Disambiguate SBOM workflow artifacts + SARIF category across matrix entries
-            # (otherwise all 4 distros collide on container-image-sdr-base.spdx.json → 409).
+            # tag_suffix appends `-${distro}` to every gitversion-derived tag, so each
+            # matrix entry gets a full per-distro semver tag set (e.g. :1.2.3-trixie,
+            # :1.2-trixie, :1-trixie, :main-trixie) with no cross-distro races.
+            # additional_tags carries the bare distro tag (e.g. :trixie) — the floating
+            # pointer feeders and gsm-tools consume.
+            tag_suffix: ${{ matrix.debian_release }}
+            additional_tags: ${{ matrix.debian_release }}
             artifact_name_suffix: ${{ matrix.debian_release }}
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
-            # Signing flags left at their defaults (all true) on purpose: the reusable's
-            # cosign_supply_chain_attest_enabled gates SBOM/Grype generation AND artifact
-            # upload via a `cosign_sign_enabled && cosign_supply_chain_attest_enabled`
-            # conjunction inside docker-container.yml, so we can't turn signing off here
-            # without also losing the artifacts the sdr-base-sign job needs to download.
-            # Net effect: every image carries two cosign signatures — one with the
-            # reusable's identity, one with this workflow's identity (added below).
-            # Verifiers can pin to either. A future reusable-workflows patch that
-            # decouples generation from signing would let us drop the reusable's sig.
+            # v1.54.0 decoupled SBOM/Grype generation from cosign signing — so we can
+            # turn off reusable-side signing while still getting the predicate artifacts
+            # the consumer-side sdr-base-sign job needs to download. End state: ONE
+            # cosign signature per image with this workflow's Fulcio identity.
+            cosign_sign_enabled: false
+            attest_build_provenance_enabled: false
             build_args: |
                 DEBIAN_RELEASE=${{ matrix.debian_release }}
                 ${{ matrix.extra_build_args }}
@@ -231,17 +232,19 @@ jobs:
                     - debian_release: buster
                       extra_build_args: |
                           INSTALL_PYTHON_BUILD_TOOLS=false
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
         with:
             container_image_name_postfix: sdr-build
             build_context: images/sdr-build
             dockerfile: images/sdr-build/Dockerfile
             platforms: linux/amd64,linux/arm64
-            use_gitversion_tags: false
-            additional_tags: ${{ matrix.debian_release }};${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
-            # Disambiguate SBOM workflow artifacts + SARIF category across matrix entries.
+            tag_suffix: ${{ matrix.debian_release }}
+            additional_tags: ${{ matrix.debian_release }}
             artifact_name_suffix: ${{ matrix.debian_release }}
             grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
+            # See sdr-base above for the cosign_sign_enabled rationale.
+            cosign_sign_enabled: false
+            attest_build_provenance_enabled: false
             # SDR_BASE pulls sdr-base by the floating distro tag pushed by the sdr-base job
             # above. Acceptable for homelab scale; for stricter reproducibility, refactor
             # sdr-base to emit per-distro digest outputs and consume them here.
@@ -338,13 +341,17 @@ jobs:
                 echo "grype_json_path=$GRYPE" >> "$GITHUB_OUTPUT"
 
             - name: Sign and attest (consumer-context OIDC)
-              uses: hwinther/reusable-workflows/.github/actions/sign-image@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
+              uses: hwinther/reusable-workflows/.github/actions/sign-image@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
               with:
                   container_registry: ghcr.io
                   repository: ${{ steps.repo.outputs.repository }}
                   container_image_name_postfix: sdr-base
                   image_digest: ${{ steps.digest.outputs.value }}
-                  container_tags: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ matrix.debian_release }},ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
+                  # Tag format matches v1.55.0's tag_suffix convention (`${version}-${distro}`).
+                  # cosign sign binds the signature to the digest the registry resolves these
+                  # tags to, so all other tags pointing at the same digest (`:1.2-trixie`,
+                  # `:1-trixie`, etc.) also verify against this signature.
+                  container_tags: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ matrix.debian_release }},ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ needs.version.outputs.version }}-${{ matrix.debian_release }}
                   sbom_cyclonedx_path: ${{ steps.predicates.outputs.sbom_cyclonedx_path }}
                   grype_json_path: ${{ steps.predicates.outputs.grype_json_path }}
                   version: ${{ needs.version.outputs.version }}
@@ -432,13 +439,13 @@ jobs:
                 echo "grype_json_path=$GRYPE" >> "$GITHUB_OUTPUT"
 
             - name: Sign and attest (consumer-context OIDC)
-              uses: hwinther/reusable-workflows/.github/actions/sign-image@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
+              uses: hwinther/reusable-workflows/.github/actions/sign-image@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
               with:
                   container_registry: ghcr.io
                   repository: ${{ steps.repo.outputs.repository }}
                   container_image_name_postfix: sdr-build
                   image_digest: ${{ steps.digest.outputs.value }}
-                  container_tags: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ matrix.debian_release }},ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ matrix.debian_release }}-${{ needs.version.outputs.version }}
+                  container_tags: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ matrix.debian_release }},ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ needs.version.outputs.version }}-${{ matrix.debian_release }}
                   sbom_cyclonedx_path: ${{ steps.predicates.outputs.sbom_cyclonedx_path }}
                   grype_json_path: ${{ steps.predicates.outputs.grype_json_path }}
                   version: ${{ needs.version.outputs.version }}
