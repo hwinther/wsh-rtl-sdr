@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
     gsm-tools:
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
         with:
             container_image_name_postfix: gsm-tools
             build_context: docker

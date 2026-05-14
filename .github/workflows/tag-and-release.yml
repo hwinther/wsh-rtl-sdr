@@ -31,7 +31,7 @@ jobs:
         # No `secrets:` block: the reusable tag-and-release.yml uses only GITHUB_TOKEN
         # (auto-available to called workflows). Avoids the zizmor "secrets unconditionally
         # inherited" finding.
-        uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
+        uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@a6b7b1ad8c8ef6179c86e95488cb714a1e134ab8 # v1.53.0
         with:
             tag_name: ${{ inputs.tag_name }}
             release_notes: ${{ inputs.release_notes }}
