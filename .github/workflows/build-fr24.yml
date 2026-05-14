@@ -4,37 +4,36 @@ name: Build fr24 container image
 # match build-dump1090-fa.yml — see that file for the full Option 2 trigger rationale.
 
 on:
-    workflow_dispatch:
-        inputs:
-            grype_fail_build:
-                description: "Fail the build if Grype finds vulnerabilities"
-                type: boolean
-                default: true
-    push:
-        branches: [main]
-        paths:
-            - "images/fr24/**"
-            - ".github/workflows/build-fr24.yml"
+  workflow_dispatch:
+    inputs:
+      grype_fail_build:
+        description: "Fail the build if Grype finds vulnerabilities"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "images/fr24/**"
 
 permissions:
-    contents: read
-    packages: write
-    id-token: write
-    attestations: write
-    actions: write
-    security-events: write
-    pull-requests: write
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+  actions: write
+  security-events: write
+  pull-requests: write
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-    fr24:
-        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
-        with:
-            container_image_name_postfix: fr24
-            build_context: images/fr24
-            dockerfile: images/fr24/Dockerfile
-            platforms: linux/amd64,linux/arm64
-            grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
+  fr24:
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@25185e2df48cbdd90df1a8ec70b01e9911aaadbc # v1.56.0
+    with:
+      container_image_name_postfix: fr24
+      build_context: images/fr24
+      dockerfile: images/fr24/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}

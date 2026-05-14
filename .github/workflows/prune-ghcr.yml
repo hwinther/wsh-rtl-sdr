@@ -15,6 +15,10 @@ on:
                 description: "Dry run — print what would be deleted without deleting"
                 type: boolean
                 default: false
+            nuke_package:
+                description: "DESTRUCTIVE. Package name (e.g. 'wsh-rtl-sdr/old-feeder') to delete entirely — leave blank for normal smart prune."
+                type: string
+                default: ""
     schedule:
         # Sunday 04:00 UTC — runs outside the working week and before Monday's
         # base-image cron (build-sdr-images.yml runs at 06:00 UTC Monday).
@@ -26,7 +30,7 @@ permissions:
 
 jobs:
     prune:
-        uses: hwinther/reusable-workflows/.github/workflows/prune-ghcr.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+        uses: hwinther/reusable-workflows/.github/workflows/prune-ghcr.yml@25185e2df48cbdd90df1a8ec70b01e9911aaadbc # v1.56.0
         with:
             # workflow_dispatch supplies inputs.dry_run; cron leaves it null and the
             # || false fallback makes scheduled runs actually prune.
@@ -35,3 +39,8 @@ jobs:
             # sdr-base, sdr-build, gsm-tools + 7 feeders (adsbexchange, ais-catcher,
             # dump1090-fa, fr24, opensky, piaware, tar1090) — all under wsh-rtl-sdr/.
             package_namespace_prefix: wsh-rtl-sdr/
+            # When set on a manual run, bypasses the smart prune and deletes the
+            # entire named package via the GHCR package DELETE API. Cron runs leave
+            # inputs.nuke_package null so this resolves to '' and the smart prune
+            # runs as usual.
+            nuke_package: ${{ inputs.nuke_package || '' }}
