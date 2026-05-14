@@ -66,7 +66,11 @@ jobs:
                   echo "Using ref: $REF"
                   echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
-            - name: Dispatch sdr-base and sdr-build container workflow
+            # build-sdr-images.yaml is intentionally NOT dispatched from here — it has its
+            # own triggers (path changes on main + weekly cron + workflow_dispatch). The
+            # base images rebuild on their own cadence; this release workflow only rebuilds
+            # app images that genuinely change per release tag.
+            - name: Dispatch gsm-tools container workflow
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh workflow run build-sdr-images.yaml --ref "${{ steps.ref.outputs.ref }}"
+              run: gh workflow run publish-gsm-tools.yml --ref "${{ steps.ref.outputs.ref }}"

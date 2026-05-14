@@ -1,9 +1,16 @@
 name: Build sdr-base and sdr-build container images
 
-# Dispatched by tag-and-release.yml after a v* tag is created (push from GITHUB_TOKEN does
-# not fire on.push.tags, so the orchestrator dispatches this workflow explicitly against
-# the tag ref). Also runnable manually for ad-hoc rebuilds — gitversion still resolves the
-# version against whatever ref the run was dispatched from.
+# Triggers — decoupled from tag-and-release.yml on purpose. The base images rarely need
+# rebuilding (only when their Dockerfiles change or the upstream Debian base updates), so
+# they don't share the app-image release cadence.
+#
+#   - workflow_dispatch: ad-hoc rebuilds, also the path for "first-ever build before any
+#     consumer image (gsm-tools, feeders) exists."
+#   - push to main on path changes: rebuild when the Dockerfiles or this workflow change.
+#   - schedule (weekly): picks up upstream `debian:<distro>-slim` security pushes that
+#     Dependabot can't auto-PR for us (Dependabot doesn't parse ARG-substituted FROMs).
+#     Consumer images (gsm-tools, feeders) FROM the floating `:trixie` tag, so they pick
+#     up the freshened base on their next rebuild.
 #
 # Pipeline per matrix entry: gitversion → buildx (multi-arch) → SBOM → Grype → push → cosign
 # keyless sign → CycloneDX/vuln attestations → SLSA build provenance (via the reusable
@@ -24,6 +31,16 @@ on:
                 description: "Fail the build if Grype finds vulnerabilities"
                 type: boolean
                 default: true
+    push:
+        branches: [main]
+        paths:
+            - "images/sdr-base/**"
+            - "images/sdr-build/**"
+            - ".github/workflows/build-sdr-images.yaml"
+    schedule:
+        # Monday 06:00 UTC — early week so any pickup-related failures land during the
+        # working week, not Friday evening. Adjust freely; the exact hour isn't load-bearing.
+        - cron: "0 6 * * 1"
 
 permissions:
     contents: read
@@ -39,10 +56,114 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
+    # On the weekly cron trigger, compare the upstream `debian:<distro>-slim` digest against
+    # the `org.opencontainers.image.base.digest` annotation buildx baked into our last
+    # `sdr-base:<distro>` publish. Skip the whole rebuild when nothing upstream changed.
+    # Non-cron triggers (workflow_dispatch, push) always force a rebuild.
+    #
+    # Fallback semantics — designed so we never silently miss a security update:
+    #   - Annotation missing on our image (e.g. first-ever run) → treat as changed.
+    #   - Precheck step itself fails (registry timeout, etc.) → version job's `if:` falls
+    #     through to "rebuild defensively" via `needs.precheck.result == 'failure'`.
+    precheck:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: read
+        outputs:
+            changed: ${{ steps.diff.outputs.changed }}
+        steps:
+            - name: Install crane
+              if: github.event_name == 'schedule'
+              shell: bash
+              env:
+                  CRANE_VERSION: v0.20.6
+              run: |
+                set -euo pipefail
+                curl -fsSL -o /tmp/crane.tar.gz \
+                    "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+                sudo tar -C /usr/local/bin -xzf /tmp/crane.tar.gz crane
+                crane version
+
+            - name: Authenticate to GHCR
+              if: github.event_name == 'schedule'
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  ACTOR: ${{ github.actor }}
+              run: echo "$GH_TOKEN" | crane auth login ghcr.io -u "$ACTOR" --password-stdin
+
+            - name: Compare upstream vs last-built digests
+              id: diff
+              shell: bash
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  REPO: ${{ github.repository }}
+              run: |
+                set -euo pipefail
+                if [ "$EVENT_NAME" != "schedule" ]; then
+                    echo "Non-schedule trigger ($EVENT_NAME) — forcing rebuild."
+                    echo "changed=true" >> "$GITHUB_OUTPUT"
+                    exit 0
+                fi
+                repo_lc="${REPO,,}"
+                changed=false
+                missing_annotation=false
+                {
+                    echo "### 🔍 Upstream Debian digest precheck"
+                    echo
+                    echo "| Distro | Upstream digest | Last-built parent digest | Decision |"
+                    echo "|---|---|---|---|"
+                } >> "$GITHUB_STEP_SUMMARY"
+                for d in buster bullseye bookworm trixie; do
+                    upstream=$(crane digest "debian:${d}-slim")
+                    last=""
+                    if manifest_json=$(crane manifest "ghcr.io/${repo_lc}/sdr-base:${d}" 2>/dev/null); then
+                        # Try index-level annotation first.
+                        last=$(echo "$manifest_json" \
+                            | jq -r '.annotations["org.opencontainers.image.base.digest"] // empty')
+                        # Fall back to the amd64 per-arch manifest if the index lacks it.
+                        if [ -z "$last" ]; then
+                            amd64_digest=$(echo "$manifest_json" \
+                                | jq -r '.manifests[]? | select(.platform.architecture == "amd64") | .digest // empty' \
+                                | head -1)
+                            if [ -n "$amd64_digest" ]; then
+                                last=$(crane manifest "ghcr.io/${repo_lc}/sdr-base@${amd64_digest}" 2>/dev/null \
+                                    | jq -r '.annotations["org.opencontainers.image.base.digest"] // empty' || echo "")
+                            fi
+                        fi
+                    fi
+                    if [ -z "$last" ]; then
+                        echo "::warning::sdr-base:${d} not found or missing base.digest annotation — treating as changed."
+                        echo "| ${d} | \`${upstream}\` | _(missing)_ | 🔨 rebuild |" >> "$GITHUB_STEP_SUMMARY"
+                        missing_annotation=true
+                        changed=true
+                    elif [ "$upstream" != "$last" ]; then
+                        echo "${d}: upstream=${upstream}  last=${last}  → CHANGED"
+                        echo "| ${d} | \`${upstream}\` | \`${last}\` | 🔨 rebuild |" >> "$GITHUB_STEP_SUMMARY"
+                        changed=true
+                    else
+                        echo "${d}: ${upstream}  → unchanged"
+                        echo "| ${d} | \`${upstream}\` | \`${last}\` | ✅ skip |" >> "$GITHUB_STEP_SUMMARY"
+                    fi
+                done
+                echo "changed=$changed" >> "$GITHUB_OUTPUT"
+                {
+                    echo
+                    echo "**Result:** ${changed}"
+                } >> "$GITHUB_STEP_SUMMARY"
+                if [ "$missing_annotation" = "true" ]; then
+                    echo "::notice::At least one image lacked the base.digest annotation; rebuilding to populate it. Subsequent cron runs should skip cleanly when upstream is unchanged."
+                fi
+
     # Resolve one version for the whole run, then fan out into the matrix. Without this the
     # matrix entries would each run their own gitversion; same result, but one job is faster
     # and gives one canonical version string.
     version:
+        needs: precheck
+        # Run when: non-cron trigger (precheck short-circuits to changed=true), upstream
+        # genuinely changed, or precheck failed (defensive — never silently skip).
+        if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
         uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
 
     sdr-base:

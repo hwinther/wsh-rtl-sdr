@@ -1,34 +1,40 @@
-name: Publish gsm-tools image
+name: Build gsm-tools container image
+
+# Dispatched by tag-and-release.yml after a v* tag is created (push from GITHUB_TOKEN does
+# not fire on.push.tags), and runnable manually for ad-hoc rebuilds. gsm-tools is FROM
+# sdr-build:trixie, which rebuilds on its own cadence in build-sdr-images.yaml (path changes
+# + weekly cron + manual). gsm-tools picks up whichever sdr-build:trixie was last published.
+#
+# Pipeline (via the reusable docker-container.yml): gitversion → buildx (multi-arch) → SBOM
+# → Grype → push → cosign keyless sign → CycloneDX/vuln attestations → SLSA provenance.
 
 on:
-  workflow_dispatch:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/publish-gsm-tools.yml"
-      - "docker/Dockerfile"
+    workflow_dispatch:
+        inputs:
+            grype_fail_build:
+                description: "Fail the build if Grype finds vulnerabilities"
+                type: boolean
+                default: true
 
 permissions:
-  packages: write
+    contents: read
+    packages: write
+    id-token: write
+    attestations: write
+    actions: write
+    security-events: write
+    pull-requests: write
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
 
 jobs:
-  publish-docker-image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+    gsm-tools:
+        uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@1161480998898953a7f3bc14acd7d467fa7f6934 # v1.52.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build the docker image
-        run: |
-          tag=ghcr.io/hwinther/wsh-rtl-sdr/gsm-tools:13
-          tag_latest=ghcr.io/hwinther/wsh-rtl-sdr/gsm-tools:latest
-          echo tag=$tag tag_latest=$tag_latest
-          docker build docker -t $tag -t $tag_latest -f docker/Dockerfile
-          docker push $tag
-          docker push $tag_latest
+            container_image_name_postfix: gsm-tools
+            build_context: docker
+            dockerfile: docker/Dockerfile
+            platforms: linux/amd64,linux/arm64
+            grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
