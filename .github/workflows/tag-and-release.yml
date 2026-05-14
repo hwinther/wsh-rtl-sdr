@@ -6,75 +6,99 @@ name: Tag and release
 # dispatched explicitly here.
 
 on:
-    workflow_dispatch:
-        inputs:
-            tag_name:
-                description: "Tag name (e.g. v1.2.3, or 'auto' to bump minor from the latest tag)"
-                required: false
-                default: "auto"
-            release_notes:
-                description: "Release notes for this tag"
-                required: false
-            create_release:
-                description: "Create a GitHub Release for this tag"
-                required: false
-                default: "true"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name (e.g. v1.2.3, or 'auto' to bump minor from the latest tag)"
+        required: false
+        default: "auto"
+      release_notes:
+        description: "Release notes for this tag"
+        required: false
+      create_release:
+        description: "Create a GitHub Release for this tag"
+        required: false
+        default: true
+        type: boolean
+      skip_grype_gate:
+        description: "Skip the Grype severity-cutoff gate on dispatched image builds (still reports findings, but doesn't fail the build). Use when upstream feeders carry vulnerabilities we can't fix."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
-    contents: write
-    # Required so we can dispatch container workflows after tagging (tag push from
-    # GITHUB_TOKEN does not fire on.push.tags).
-    actions: write
+  contents: write
+  # Required so we can dispatch container workflows after tagging (tag push from
+  # GITHUB_TOKEN does not fire on.push.tags).
+  actions: write
 
 jobs:
-    tag:
-        # No `secrets:` block: the reusable tag-and-release.yml uses only GITHUB_TOKEN
-        # (auto-available to called workflows). Avoids the zizmor "secrets unconditionally
-        # inherited" finding.
-        uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+  tag:
+    # No `secrets:` block: the reusable tag-and-release.yml uses only GITHUB_TOKEN
+    # (auto-available to called workflows). Avoids the zizmor "secrets unconditionally
+    # inherited" finding.
+    uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@3ad0a22859d540e81f210707b744607321b5ae1b # v1.55.0
+    with:
+      tag_name: ${{ inputs.tag_name }}
+      release_notes: ${{ inputs.release_notes }}
+      create_release: ${{ inputs.create_release }}
+
+  trigger-container-builds:
+    needs: tag
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-            tag_name: ${{ inputs.tag_name }}
-            release_notes: ${{ inputs.release_notes }}
-            create_release: ${{ inputs.create_release }}
+          fetch-depth: 0
 
-    trigger-container-builds:
-        needs: tag
-        if: success()
-        runs-on: ubuntu-latest
-        permissions:
-            actions: write
-            contents: read
-        steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              with:
-                  fetch-depth: 0
+      - name: Determine ref for container builds
+        id: ref
+        env:
+          TAG: ${{ inputs.tag_name }}
+        run: |
+          git fetch --tags --force
+          if [ "$TAG" = "auto" ] || [ -z "$TAG" ]; then
+            REF=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          else
+            REF="$TAG"
+          fi
+          if [ -z "$REF" ]; then
+            echo "::error::Could not resolve a tag ref for container builds."
+            exit 1
+          fi
+          echo "Using ref: $REF"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
-            - name: Determine ref for container builds
-              id: ref
-              env:
-                  TAG: ${{ inputs.tag_name }}
-              run: |
-                  git fetch --tags --force
-                  if [ "$TAG" = "auto" ] || [ -z "$TAG" ]; then
-                    REF=$(git tag -l 'v*' --sort=-v:refname | head -n1)
-                  else
-                    REF="$TAG"
-                  fi
-                  if [ -z "$REF" ]; then
-                    echo "::error::Could not resolve a tag ref for container builds."
-                    exit 1
-                  fi
-                  echo "Using ref: $REF"
-                  echo "ref=$REF" >> "$GITHUB_OUTPUT"
-
-            # Per Option 2: base images (build-sdr-images.yml) AND feeders (build-*.yml,
-            # 7 of them) are intentionally NOT dispatched from here. Base images rebuild on
-            # their own cadence (path changes + weekly cron + manual). Feeders rebuild on
-            # their own path triggers + Dependabot PR merges that bump the pinned parent
-            # image digests in their Dockerfiles. Only gsm-tools is release-dispatched
-            # because it's the human-consumed image whose semver release matters.
-            - name: Dispatch gsm-tools container workflow
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  REF: ${{ steps.ref.outputs.ref }}
-              run: gh workflow run build-gsm-tools.yml --ref "$REF"
+      # base images (build-sdr-images.yml) are intentionally NOT dispatched from here —
+      # they rebuild on their own cadence (path changes + weekly cron + manual). All
+      # other application images (the 7 SDR feeders + gsm-tools) get rebuilt against
+      # the new v* tag so each release produces a fresh per-image semver-tagged build.
+      # Skip-grype-gate forwards as grype_fail_build=false on each dispatched workflow.
+      - name: Dispatch container build workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ steps.ref.outputs.ref }}
+          SKIP_GRYPE_GATE: ${{ inputs.skip_grype_gate }}
+        run: |
+          if [ "$SKIP_GRYPE_GATE" = "true" ]; then
+            GRYPE_FAIL_BUILD=false
+            echo "::notice::Grype severity-cutoff gate skipped — workflows still report findings but won't fail the build."
+          else
+            GRYPE_FAIL_BUILD=true
+          fi
+          for wf in \
+            build-adsbexchange.yml \
+            build-ais-catcher.yml \
+            build-dump1090-fa.yml \
+            build-fr24.yml \
+            build-gsm-tools.yml \
+            build-opensky.yml \
+            build-piaware.yml \
+            build-tar1090.yml ; do
+            echo "Dispatching $wf at $REF (grype_fail_build=$GRYPE_FAIL_BUILD)"
+            gh workflow run "$wf" --ref "$REF" -f grype_fail_build="$GRYPE_FAIL_BUILD"
+          done
