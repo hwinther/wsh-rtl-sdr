@@ -1,0 +1,61 @@
+name: Publish ais-catcher docker image
+
+on:
+    workflow_dispatch:
+    push:
+        branches: [ "main" ]
+        tags: [ "v*" ]
+        paths:
+            - ".github/workflows/build-ais-catcher.yaml"
+            - "compose/templates/ais/ais-catcher/**"
+
+permissions:
+    contents: read
+    packages: write
+    id-token: write
+    attestations: write
+
+concurrency:
+    group: ${{ github.ref }}-ais-catcher
+    cancel-in-progress: true
+
+env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    PACKAGE_NAME: ais-catcher-wsh
+    PACKAGE_PATH: /sdr/ais/
+    PACKAGE_DESCRIPTION: "AIS catcher for WSH"
+    PACKAGE_VENDOR: WSH
+    WORKING_DIRECTORY: compose/templates/ais/ais-catcher
+
+jobs:
+    publish-docker-image:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  fetch-depth: 0
+
+            - name: Remove v prefix in tag
+              id: remove-v-prefix
+              uses: ./.github/actions/git-tag-remove-prefix
+
+            - name: Check for changes in the specified path between tags
+              id: git-tag-diff
+              uses: ./.github/actions/git-tag-diff
+              with:
+                  file_path: ${{ env.WORKING_DIRECTORY }}
+
+            - name: Build and push docker image
+              uses: ./.github/actions/docker
+              # if: ${{ steps.git-tag-diff.outputs.skip == 'false' }}
+              with:
+                  package_name: ${{ env.PACKAGE_NAME }}
+                  package_path: ${{ env.PACKAGE_PATH }}
+                  package_description: ${{ env.PACKAGE_DESCRIPTION }}
+                  package_vendor: ${{ env.PACKAGE_VENDOR }}
+                  working_directory: ${{ env.WORKING_DIRECTORY }}
+                  push_condition: ${{ github.event_name != 'pull_request' }}
+                  latest_tag_enabled: ${{ !startsWith(github.ref, 'refs/tags/') }}
+                  tag: ${{ startsWith(github.ref, 'refs/tags/') &&
+                      steps.remove-v-prefix.outputs.tag || '' }}
+                  attest_supply_chain: "true"
