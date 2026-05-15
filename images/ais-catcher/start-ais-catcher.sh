@@ -18,7 +18,7 @@
 # -p 0  # Dongle temperature correction, ppm \
 # -o 4  # Output JSON sparse to console \
 
-COMMAND="/usr/local/bin/AIS-catcher \
+COMMAND="AIS-catcher \
     -v 10 \
     -M DT \
     -gr TUNER 38.6 RTLAGC off BIASTEE $BIASTEE \
