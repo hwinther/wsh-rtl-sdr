@@ -2,7 +2,7 @@
 # PRs when sdr-base:bookworm / sdr-build:bookworm digests advance in the registry (which
 # happens whenever images/sdr-{base,build} or upstream debian:bookworm-slim updates).
 FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bookworm@sha256:8a6d73a8827e7689a455c3ed57bba6ab515857e26401c702d5f8a84e766bb6f8 AS runtime
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bookworm@sha256:f515c0b246027069cdf228ce3242a6fd9a1745b454d5fd3683dfe390e5405f40 AS build
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bookworm@sha256:c756fc3a502cdf52f60af6c510ab68e3e151d518467ec9d40984e3265b955403 AS build
 
 FROM build AS build-adsbexchange
 
