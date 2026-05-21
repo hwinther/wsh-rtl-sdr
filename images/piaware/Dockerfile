@@ -1,14 +1,20 @@
 # Digest-pinned so Dependabot tracks sdr-base/sdr-build updates.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bookworm@sha256:a58c051948cc236d4cde18c22e19d771127527d3aa3af9fa08b1fdff2d1e02a6 AS runtime
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bookworm@sha256:c756fc3a502cdf52f60af6c510ab68e3e151d518467ec9d40984e3265b955403 AS build
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:80864616ab237bbf8508f74354155e3a43d092b923c3e1e16bce98bcb547dab5 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:f4e598858e26521d50c57a728f381dd9ff670d2e59f3de71f34258ae1c8418a3 AS build
 
 FROM build AS build-piaware
 WORKDIR /src
 RUN git clone https://github.com/flightaware/piaware_builder.git
 WORKDIR /src/piaware_builder
-RUN ./sensible-build.sh bookworm
-WORKDIR /src/piaware_builder/package-bookworm
-RUN dpkg-buildpackage -b --no-sign && \
+RUN ./sensible-build.sh trixie
+WORKDIR /src/piaware_builder/package-trixie
+# trixie's debian/control declares build-deps (python3-filelock,
+# python3-pyasyncore, ...) not present in the base image. build-dep reads the
+# generated control and installs exactly what this distribution requires.
+RUN apt-get update && \
+    apt-get -y build-dep . && \
+    dpkg-buildpackage -b --no-sign && \
+    apt-get clean && \
     mkdir -p /opt/packages && \
     cp -f /src/piaware_builder/*.deb /opt/packages
 
@@ -16,9 +22,16 @@ FROM build AS build-piaware-web
 WORKDIR /src
 RUN git clone https://github.com/flightaware/piaware-web.git
 WORKDIR /src/piaware-web
+# piaware-web's prepare-build.sh has no trixie case yet ("Don't know how to
+# build for a distribution named trixie"). bookworm is its newest target and
+# only sets a changelog distribution -- piaware-web ships static web assets,
+# so the resulting .deb installs cleanly on the trixie runtime regardless.
 RUN ./prepare-build.sh bookworm
 WORKDIR /src/piaware-web/package-bookworm
-RUN dpkg-buildpackage -b --no-sign && \
+RUN apt-get update && \
+    apt-get -y build-dep . && \
+    dpkg-buildpackage -b --no-sign && \
+    apt-get clean && \
     mkdir -p /opt/packages && \
     cp -f /src/piaware-web/*.deb /opt/packages
 

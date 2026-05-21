@@ -1,8 +1,8 @@
 # Digest-pinned so Dependabot's docker ecosystem can track updates. Dependabot will open
-# PRs when sdr-base:bookworm / sdr-build:bookworm digests advance in the registry (which
-# happens whenever images/sdr-{base,build} or upstream debian:bookworm-slim updates).
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bookworm@sha256:a58c051948cc236d4cde18c22e19d771127527d3aa3af9fa08b1fdff2d1e02a6 AS runtime
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bookworm@sha256:c756fc3a502cdf52f60af6c510ab68e3e151d518467ec9d40984e3265b955403 AS build
+# PRs when sdr-base:trixie / sdr-build:trixie digests advance in the registry (which
+# happens whenever images/sdr-{base,build} or upstream debian:trixie-slim updates).
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:80864616ab237bbf8508f74354155e3a43d092b923c3e1e16bce98bcb547dab5 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:f4e598858e26521d50c57a728f381dd9ff670d2e59f3de71f34258ae1c8418a3 AS build
 
 FROM build AS build-adsbexchange
 
@@ -38,11 +38,15 @@ NET_OPTIONS="--net-heartbeat 60 --net-ro-size 1280 --net-ro-interval 0.2 --net-r
 JSON_OPTIONS="--max-range 450 --json-location-accuracy 2 --range-outline-hours 24"
 EOF
 
-COPY --chmod=755 <<EOF /usr/bin/systemctl
+# Stub out systemctl/journalctl so feedclient's update.sh (which enables and
+# starts systemd services) succeeds in a container with no init. These live in
+# /usr/local/bin -- ahead of /usr/bin on PATH and owned by no package -- so an
+# apt operation in update.sh that (re)installs systemd cannot clobber them.
+COPY --chmod=755 <<EOF /usr/local/bin/systemctl
 #!/bin/bash
 echo "Fake systemctl called with: \$@"
 EOF
-COPY --chmod=755 <<EOF /usr/bin/journalctl
+COPY --chmod=755 <<EOF /usr/local/bin/journalctl
 #!/bin/bash
 echo "Fake journalctl called with: \$@"
 EOF

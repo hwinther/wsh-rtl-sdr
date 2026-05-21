@@ -34,8 +34,14 @@ $Mode = [ordered]@{
 }
 
 function Invoke-Compose {
-  param([string] $Profile, [string[]] $Args)
-  & docker compose -f $ComposeFile --profile $Profile @Args
+  # Build the full argv as one array and splat that.
+  # `... | Out-Host` is required: `docker compose build` prints progress to the
+  # success stream, so a bare `& docker` would make that output the function's
+  # return value. The caller compares the return against 0, so the only thing
+  # this function may emit downstream is the exit code itself.
+  param([string] $Profile, [string[]] $ComposeArgs)
+  $argv = @('compose', '-f', $ComposeFile, '--profile', $Profile) + $ComposeArgs
+  & docker @argv 2>&1 | Out-Host
   return $LASTEXITCODE
 }
 
