@@ -3,7 +3,12 @@ FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bookworm@sha256:8a6d73a8827e7689a455c
 
 FROM runtime AS install-dump1090-fa
 COPY tar1090-build-data /run/dump1090-fa
-RUN apt-get -y install nginx && \
+# apt-get update is required here: the parent layer cleaned /var/lib/apt/lists,
+# and without a refresh apt resolves to whatever stale binNMU version was
+# pinned in the base image, which Debian routinely supersedes (last seen:
+# libpam-cap_2.66-4+deb12u2+b2 -> 404 once +b3 shipped).
+RUN apt-get update && \
+    apt-get -y install nginx && \
     bash -c "$(wget -nv -O - https://github.com/wiedehopf/tar1090/raw/master/install.sh)" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

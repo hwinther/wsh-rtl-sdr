@@ -30,7 +30,10 @@ RUN mkdir build && \
     ldconfig
 
 FROM build-rtl-sdr AS build-kalibrate-rtl
-RUN apt-get -y install libtool libfftw3-dev && \
+# apt-get update is required: parent layer cleaned /var/lib/apt/lists,
+# and Debian routinely supersedes the binNMU versions referenced there.
+RUN apt-get update && \
+    apt-get -y install libtool libfftw3-dev && \
     apt-get clean
 WORKDIR /src
 RUN git clone https://github.com/steve-m/kalibrate-rtl.git
@@ -41,11 +44,13 @@ RUN ./bootstrap && \
     make install
 
 FROM build-kalibrate-rtl AS gnuradio-dep
-RUN apt-get -y install gnuradio-dev && \
+RUN apt-get update && \
+    apt-get -y install gnuradio-dev && \
     apt-get clean
 
 FROM gnuradio-dep AS build-gr-gsm
-RUN apt-get -y install \
+RUN apt-get update && \
+    apt-get -y install \
     libcppunit-dev \
     swig \
     doxygen \
@@ -65,7 +70,8 @@ RUN mkdir build && \
     ldconfig
 
 FROM build-gr-gsm AS build-lte-cell-scanner
-RUN apt-get -y install libitpp-dev opencl-headers libblas-dev liblapack-dev && \
+RUN apt-get update && \
+    apt-get -y install libitpp-dev opencl-headers libblas-dev liblapack-dev && \
     apt-get clean
 WORKDIR /src
 RUN git clone https://github.com/JiaoXianjun/LTE-Cell-Scanner.git
@@ -77,7 +83,8 @@ RUN mkdir build && \
     make install
 
 FROM build-lte-cell-scanner AS build-gr-iridium
-RUN apt-get -y install libvolk-dev pybind11-dev libsndfile1-dev && \
+RUN apt-get update && \
+    apt-get -y install libvolk-dev pybind11-dev libsndfile1-dev && \
     apt-get clean
 WORKDIR /src
 RUN git clone https://github.com/muccc/gr-iridium.git
@@ -89,7 +96,8 @@ RUN cmake -B build && \
 
 FROM build-gr-iridium AS final
 WORKDIR /srv
-RUN apt-get -y install termshark tshark tmux && \
+RUN apt-get update && \
+    apt-get -y install termshark tshark tmux && \
     apt-get clean && \
     python3 -m venv venv3 && \
     source venv3/bin/activate && \
