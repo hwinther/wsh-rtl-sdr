@@ -1,0 +1,60 @@
+name: Smoke test container images
+
+# Builds and smoke-tests each image in isolation with NO RTL-SDR hardware,
+# using docker-compose.test.yml + scripts/smoke-test.sh. The RF images run in
+# no-SDR modes (dump1090-fa --net-only hub, ais-catcher reading /dev/zero);
+# network consumers are gated on a healthy dump1090-fa hub; gsm-tools is a
+# build + binary-exists check. amd64 only to keep CI fast.
+#
+# One matrix job per image == "test each of them separately" with independent
+# pass/fail status. Complements (does not replace) the publish pipeline in the
+# build-<image>.yml workflows.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "images/**"
+      - "docker-compose.test.yml"
+      - "scripts/smoke-test.*"
+      - ".github/workflows/smoke-test.yml"
+  push:
+    branches: [main]
+    paths:
+      - "images/**"
+      - "docker-compose.test.yml"
+      - "scripts/smoke-test.*"
+      - ".github/workflows/smoke-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - dump1090-fa
+          - ais-catcher
+          - tar1090
+          - piaware
+          - fr24
+          - adsbexchange
+          - opensky
+          - gsm-tools
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Smoke test ${{ matrix.image }}
+        run: bash scripts/smoke-test.sh "${{ matrix.image }}"

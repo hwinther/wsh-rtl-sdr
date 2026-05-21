@@ -1,0 +1,28 @@
+# Normalize line endings so images build identically on Windows and Linux.
+#
+# Shell/execline scripts and Dockerfiles are COPY'd into Linux images and
+# exec'd there. A CRLF shebang (`#!/command/with-contenv bash\r`) makes s6
+# try to exec `bash\r` and the container dies with exit 127. Force LF for
+# everything that runs inside a container regardless of contributor OS or
+# core.autocrlf.
+
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.pjs   text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Windows-only helpers stay CRLF.
+*.ps1   text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Binary assets must never be munged.
+*.png   binary
+*.jpg   binary
+*.gz    binary
+*.bin   binary

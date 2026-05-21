@@ -25,7 +25,11 @@ RUN dpkg-buildpackage -b --no-sign && \
 FROM runtime AS install
 COPY --from=build-piaware /opt/packages /opt/packages
 COPY --from=build-piaware-web /opt/packages /opt/packages
-RUN apt -y install /opt/packages/*.deb && \
+# apt-get update is required here: the parent layer cleaned /var/lib/apt/lists,
+# and the .deb dependencies pull packages whose binNMU versions Debian
+# routinely supersedes (e.g. libpam-cap +b2 -> +b3), 404'ing without a refresh.
+RUN apt-get update && \
+    apt -y install /opt/packages/*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

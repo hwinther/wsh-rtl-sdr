@@ -1,0 +1,174 @@
+# Per-image smoke-test orchestration. NOT for production.
+#
+# Usage (one image in isolation, builds if missing):
+#   docker compose -f docker-compose.test.yml --profile dump1090-fa up --build
+#
+# Prefer the wrapper, which adds assertions + guaranteed teardown:
+#   pwsh scripts/smoke-test.ps1 <image>     (Windows)
+#   bash scripts/smoke-test.sh  <image>     (Linux/CI)
+#
+# RF hardware is simulated WITHOUT a dongle:
+#   - dump1090-fa runs as a pure --net-only Beast/raw hub (EXTRA_ARGS).
+#     It doubles as the shared hub the network consumers connect to.
+#   - ais-catcher reads an infinite zero IQ stream (/dev/zero) instead of an
+#     RTL-SDR; its web server still comes up so the in-image healthcheck passes.
+#   - gsm-tools is build-only: assert key SDR binaries resolve on PATH.
+#
+# Each service is gated behind a profile equal to its image name. dump1090-fa
+# is a member of every consumer profile so e.g. `--profile fr24` transitively
+# starts the hub and waits for it to become healthy before fr24 starts.
+
+name: wsh-rtl-sdr-smoketest
+
+networks:
+  sdrtest:
+    driver: bridge
+
+services:
+  # --- RF image: ADS-B receiver, run as a no-SDR Beast/raw hub -------------
+  dump1090-fa:
+    build:
+      context: ./images/dump1090-fa
+    image: wsh-rtl-sdr-smoketest/dump1090-fa
+    networks: [sdrtest]
+    environment:
+      # --net-only => no SDR is opened; still listens on 30002-30005 and the
+      # in-image HEALTHCHECK (TCP 30005) passes. This is the dongle simulation.
+      EXTRA_ARGS: "--net-only"
+      LAT: "59.91"
+      LON: "10.75"
+    # Shared hub: present in every consumer profile + its own.
+    profiles: [dump1090-fa, piaware, fr24, adsbexchange, opensky]
+
+  # --- RF image: AIS receiver, fed an infinite zero IQ stuck-no-dongle ------
+  ais-catcher:
+    build:
+      context: ./images/ais-catcher
+    image: wsh-rtl-sdr-smoketest/ais-catcher
+    networks: [sdrtest]
+    environment:
+      AIS_CATCHER_PORT: "8100"
+    # Deliberately bypass start-ais-catcher.sh (it hard-codes a `-d` RTL-SDR
+    # device). Read /dev/zero as raw CU8 so the decoder + web server stay up
+    # with no hardware and no sample data committed to the repo. The in-image
+    # HEALTHCHECK (TCP 8100) is the pass condition.
+    entrypoint:
+      - /bin/bash
+      - -c
+      # $$ escapes Compose interpolation so the container shell expands the
+      # AIS_CATCHER_PORT env var (set above / image ENV), not the host.
+      - 'AIS-catcher -v 10 -r CU8 /dev/zero -N "$${AIS_CATCHER_PORT}" GEOJSON on'
+    profiles: [ais-catcher]
+
+  # --- Web UI only: nginx, no hub required ---------------------------------
+  tar1090:
+    build:
+      context: ./images/tar1090
+    image: wsh-rtl-sdr-smoketest/tar1090
+    networks: [sdrtest]
+    # In-image HEALTHCHECK (TCP 80) is the pass condition.
+    profiles: [tar1090]
+
+  # --- Network consumers: need a healthy dump1090-fa hub -------------------
+  piaware:
+    build:
+      context: ./images/piaware
+    image: wsh-rtl-sdr-smoketest/piaware
+    networks: [sdrtest]
+    depends_on:
+      dump1090-fa:
+        condition: service_healthy
+    environment:
+      # start-piaware.sh exits unless LAT/LON/FEEDER_ID are all set.
+      LAT: "59.91"
+      LON: "10.75"
+      FEEDER_ID: "00000000-0000-0000-0000-000000000000"
+      # RECEIVER_*/MLAT_* default to dump1090-fa in the image.
+    # In-image HEALTHCHECK (piaware.pid process alive) is the pass condition.
+    profiles: [piaware]
+
+  fr24:
+    build:
+      context: ./images/fr24
+    image: wsh-rtl-sdr-smoketest/fr24
+    networks: [sdrtest]
+    depends_on:
+      dump1090-fa:
+        condition: service_healthy
+    environment:
+      # Dummy key: fr24feed stays up retrying even when the key is rejected.
+      FR24_KEY: "0000000000000000"
+      # RECEIVER_TYPE/HOST/PORT default to avr-tcp/dump1090-fa/30002.
+    # The image's HEALTHCHECK greps `fr24feed-status` for "FR24 Link:
+    # connected" -- requires a valid FR24 key + reachable upstream, wrong
+    # criterion for an offline smoke. Replace with a process-alive check.
+    # (`compose --wait` requires *some* healthcheck; `disable: true` would
+    # break it.)
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x fr24feed >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    profiles: [fr24]
+
+  adsbexchange:
+    build:
+      context: ./images/adsbexchange
+    image: wsh-rtl-sdr-smoketest/adsbexchange
+    networks: [sdrtest]
+    depends_on:
+      dump1090-fa:
+        condition: service_healthy
+    environment:
+      ADSBX_UUID: "00000000-0000-0000-0000-000000000000"
+      LAT: "59"
+      LON: "10"
+      # RECEIVER_HOST/MLAT_BEAST_HOST default to dump1090-fa in the image.
+    # No in-image healthcheck; `compose --wait` needs one to evaluate.
+    # adsbexchange-feed.sh execs `readsb` under the hood.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f adsbexchange-feed >/dev/null || pgrep -x readsb >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    profiles: [adsbexchange]
+
+  opensky:
+    build:
+      context: ./images/opensky
+    image: wsh-rtl-sdr-smoketest/opensky
+    networks: [sdrtest]
+    depends_on:
+      dump1090-fa:
+        condition: service_healthy
+    environment:
+      LAT: "59"
+      LON: "10"
+      ALT: "0"
+      OPENSKY_USERNAME: "smoketest"
+      OPENSKY_SERIAL: "0000000000"
+      # RECEIVER_HOST/PORT default to dump1090-fa in the image.
+    # No in-image healthcheck; `compose --wait` needs one to evaluate.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f openskyd-dump1090 >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    profiles: [opensky]
+
+  # --- Interactive image: build + binary-exists check, no daemon ----------
+  gsm-tools:
+    build:
+      context: ./images/gsm-tools
+    image: wsh-rtl-sdr-smoketest/gsm-tools
+    networks: [sdrtest]
+    # Runs once and exits 0 iff the key SDR binaries are on PATH; the wrapper
+    # checks the exit code (there is no port/daemon to probe).
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - 'command -v rtl_sdr && command -v kal && command -v grgsm_livemon && echo "gsm-tools OK"'
+    profiles: [gsm-tools]
