@@ -33,3 +33,11 @@ updates:
   schedule:
     interval: "daily"
   open-pull-requests-limit: 20
+  groups:
+    # The sdr-base / sdr-build digests are pinned in every feeder's
+    # Dockerfile, so one base-image rebuild otherwise opens a separate PR
+    # per directory. Group them into a single PR across all directories.
+    sdr-base-images:
+      patterns:
+      - "*sdr-base"
+      - "*sdr-build"
