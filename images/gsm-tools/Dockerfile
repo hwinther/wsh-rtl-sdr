@@ -14,7 +14,7 @@
 # Digest-pinned so Dependabot's docker ecosystem tracks sdr-build updates.
 # The tag (`:trixie`) tells Dependabot which channel to follow; the digest is the actual
 # pin Docker resolves at build time. Dependabot opens PRs when the tag's digest advances.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:f4e598858e26521d50c57a728f381dd9ff670d2e59f3de71f34258ae1c8418a3 AS base
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:b6a3cb25482e9b1f54d64885e9ac6543069a9cdcb77186a8b0dde3b64d9214ce AS base
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
 
