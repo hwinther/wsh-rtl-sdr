@@ -1,7 +1,7 @@
 # Digest-pinned so Dependabot tracks sdr-base/sdr-build updates. Buster is archived in
 # Debian; sdr-base/sdr-build:buster handles the archive.debian.org sources rewrite.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:buster@sha256:8f5fa44d463fee53ef9aa3991b3886d59514e117b34f823d83847a202c0ce4bf AS runtime
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:buster@sha256:7dcefe991850766cff255d21aa5b182f6958b1aead52e0e3d5ed48dc2ed27ba6 AS build
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:buster@sha256:8a8acd9c17b14692be89c03f013ef3c404d042a26de06b213f9d4dbd3ea4e6e6 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:buster@sha256:c2908b4ccf528b3e59f4afbbfbe33e77582de4029011e69c02e81d4e10af2185 AS build
 
 FROM build AS install-build-deps
 RUN apt-get -y install \
