@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   piaware:
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@25185e2df48cbdd90df1a8ec70b01e9911aaadbc # v1.56.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@67ef4a8614e14d29e0039410f41a7ab9a7af093f # v1.58.0
     with:
       container_image_name_postfix: piaware
       build_context: images/piaware
