@@ -340,7 +340,7 @@ jobs:
           echo "grype_json_path=$GRYPE" >> "$GITHUB_OUTPUT"
 
       - name: Sign and attest (consumer-context OIDC)
-        uses: hwinther/reusable-workflows/.github/actions/sign-image@25185e2df48cbdd90df1a8ec70b01e9911aaadbc # v1.56.0
+        uses: hwinther/reusable-workflows/.github/actions/sign-image@c14eb75f61df1e0344a70d6e8ce2210406a5fea0 # v1.60.0
         with:
           container_registry: ghcr.io
           repository: ${{ steps.repo.outputs.repository }}
@@ -438,7 +438,7 @@ jobs:
           echo "grype_json_path=$GRYPE" >> "$GITHUB_OUTPUT"
 
       - name: Sign and attest (consumer-context OIDC)
-        uses: hwinther/reusable-workflows/.github/actions/sign-image@25185e2df48cbdd90df1a8ec70b01e9911aaadbc # v1.56.0
+        uses: hwinther/reusable-workflows/.github/actions/sign-image@c14eb75f61df1e0344a70d6e8ce2210406a5fea0 # v1.60.0
         with:
           container_registry: ghcr.io
           repository: ${{ steps.repo.outputs.repository }}
