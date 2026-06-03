@@ -11,20 +11,29 @@
 #-Q mqtt://127.0.0.1:1883 guest MSGFORMAT JSON_FULL TOPIC data/ais \
 
 # -N 80  # Port number for web interface \
-# -v 10  # Verbose output each x seconds \
 # -M DT  # additional meta data to generate: T = NMEA timestamp, D = decoder related \
 # -gr TUNER 38.6 RTLAGC off  # Dongle gain \
 # -s 2304k  # Sample rate \
 # -p 0  # Dongle temperature correction, ppm \
-# -o 4  # Output JSON sparse to console \
+
+# Console verbosity is env-tunable and quiet by default so the container doesn't flood pod logs
+# (the SDR Pi keeps /var/log/pods on a small tmpfs). The web UI (-N), GEOJSON/REALTIME and hub
+# feeds (-u) are separate outputs and are unaffected by -o.
+#   AIS_OUTPUT_MODE      -o mode: 0=quiet (default), 1=NMEA, 2=NMEA+, 3=JSON NMEA, 4=JSON sparse, 5=JSON full
+#   AIS_VERBOSE_INTERVAL if set (seconds), adds `-v <n>` periodic stats; unset (default) = no verbose
+OUTPUT_MODE="${AIS_OUTPUT_MODE:-0}"
+VERBOSE_ARG=""
+if [ -n "$AIS_VERBOSE_INTERVAL" ]; then
+    VERBOSE_ARG="-v $AIS_VERBOSE_INTERVAL"
+fi
 
 COMMAND="AIS-catcher \
-    -v 10 \
+    $VERBOSE_ARG \
     -M DT \
     -gr TUNER 38.6 RTLAGC off BIASTEE $BIASTEE \
     -s 2304k \
     -p 0 \
-    -o 4 \
+    -o $OUTPUT_MODE \
     -N $AIS_CATCHER_PORT GEOJSON on STATION \"$STATION_NAME\" STATION_LINK $STATION_URL LAT $LAT LON $LON SHARE_LOC on \
     -N PLUGIN_DIR /usr/share/aiscatcher/my-plugins \
     -N REALTIME on \
