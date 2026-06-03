@@ -27,6 +27,17 @@ if [ -n "$AIS_VERBOSE_INTERVAL" ]; then
     VERBOSE_ARG="-v $AIS_VERBOSE_INTERVAL"
 fi
 
+# MQTT publishing (optional). Set MQTT_HOST to enable; each decoded message is published to
+# MQTT_TOPIC as MQTT_MSGFORMAT. Auth goes in the broker URL (mqtt://user:pass@host), so the
+# password must come from env (MQTT_PASSWORD, sourced from a Secret) — never baked into the image.
+# Use an ALPHANUMERIC password: the URL userinfo can't contain @ : / safely.
+#   MQTT_HOST, MQTT_PORT (default 1883), MQTT_USERNAME, MQTT_PASSWORD,
+#   MQTT_TOPIC (default ais/data; supports templates like ais/%mmsi%), MQTT_MSGFORMAT (default JSON_FULL)
+MQTT_ARG=""
+if [ -n "$MQTT_HOST" ]; then
+    MQTT_ARG="-Q mqtt://${MQTT_USERNAME}:${MQTT_PASSWORD}@${MQTT_HOST}:${MQTT_PORT:-1883} topic ${MQTT_TOPIC:-ais/data} msgformat ${MQTT_MSGFORMAT:-JSON_FULL} client_id aiscatcher qos 0"
+fi
+
 COMMAND="AIS-catcher \
     $VERBOSE_ARG \
     -M DT \
@@ -38,7 +49,9 @@ COMMAND="AIS-catcher \
     -N PLUGIN_DIR /usr/share/aiscatcher/my-plugins \
     -N REALTIME on \
     -d $DEVICE_INDEX \
+    $MQTT_ARG \
     $EXTRA_ARGS"
 
-echo "Executing: $COMMAND"
+# Redact the MQTT password (and leave the rest) so it isn't written to pod logs.
+echo "Executing: $(echo "$COMMAND" | sed -E 's#(mqtt://[^:]*:)[^@]*@#\1***@#g')"
 eval $COMMAND
