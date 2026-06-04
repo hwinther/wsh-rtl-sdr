@@ -27,6 +27,7 @@ updates:
   - "/images/piaware"
   - "/images/tar1090"
   - "/images/ais-catcher"
+  - "/images/adsb-mqtt"
   - "/images/sdr-base"
   - "/images/sdr-build"
   - "/images/gsm-tools"

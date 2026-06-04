@@ -1,0 +1,40 @@
+name: Build adsb-mqtt container image
+
+# Publisher image (polls dump1090-fa aircraft.json → MQTT). Pipeline shape matches
+# build-adsbexchange.yml — uses the shared reusable docker-container workflow so the image gets
+# the SLSA provenance the cluster's supply-chain policies require.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grype_fail_build:
+        description: "Fail the build if Grype finds vulnerabilities"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "images/adsb-mqtt/**"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+  actions: write
+  security-events: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  adsb-mqtt:
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@67ef4a8614e14d29e0039410f41a7ab9a7af093f # v1.58.0
+    with:
+      container_image_name_postfix: adsb-mqtt
+      build_context: images/adsb-mqtt
+      dockerfile: images/adsb-mqtt/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
