@@ -21,8 +21,9 @@ def _env(name, default=None):
 
 def _make_client(client_id):
     # paho-mqtt 2.x requires a CallbackAPIVersion; 1.x doesn't have the enum. Support both.
+    # VERSION2 is fine here — this is publish-only, no callbacks whose signatures would differ.
     try:
-        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id)
+        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
     except AttributeError:
         return mqtt.Client(client_id=client_id)
 
