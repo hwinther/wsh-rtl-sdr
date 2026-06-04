@@ -30,7 +30,7 @@ permissions:
 
 jobs:
     prune:
-        uses: hwinther/reusable-workflows/.github/workflows/prune-ghcr.yml@67ef4a8614e14d29e0039410f41a7ab9a7af093f # v1.58.0
+        uses: hwinther/reusable-workflows/.github/workflows/prune-ghcr.yml@c14eb75f61df1e0344a70d6e8ce2210406a5fea0 # v1.60.0
         with:
             # workflow_dispatch supplies inputs.dry_run; cron leaves it null and the
             # || false fallback makes scheduled runs actually prune.
