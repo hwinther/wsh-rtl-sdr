@@ -176,7 +176,7 @@ jobs:
     # Run when: non-cron trigger (precheck short-circuits to changed=true), upstream
     # genuinely changed, or precheck failed (defensive — never silently skip).
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
-    uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@c14eb75f61df1e0344a70d6e8ce2210406a5fea0 # v1.60.0
+    uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@fda2ed0c124592518431318dfcd4de7c034777f9 # v1.64.0
 
   sdr-base:
     needs: version
@@ -190,7 +190,7 @@ jobs:
           - debian_release: buster
             extra_build_args: |
               USE_ARCHIVE_REPOS=true
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@c14eb75f61df1e0344a70d6e8ce2210406a5fea0 # v1.60.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@fda2ed0c124592518431318dfcd4de7c034777f9 # v1.64.0
     with:
       container_image_name_postfix: sdr-base
       build_context: images/sdr-base
@@ -231,7 +231,7 @@ jobs:
           - debian_release: buster
             extra_build_args: |
               INSTALL_PYTHON_BUILD_TOOLS=false
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@c14eb75f61df1e0344a70d6e8ce2210406a5fea0 # v1.60.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@fda2ed0c124592518431318dfcd4de7c034777f9 # v1.64.0
     with:
       container_image_name_postfix: sdr-build
       build_context: images/sdr-build
