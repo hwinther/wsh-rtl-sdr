@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   adsbexchange:
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@fda2ed0c124592518431318dfcd4de7c034777f9 # v1.64.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@f65228ea4276b3ff26409146ccd1191c728c811a # v1.65.0
     with:
       container_image_name_postfix: adsbexchange
       build_context: images/adsbexchange
