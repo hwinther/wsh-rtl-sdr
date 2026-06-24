@@ -3,7 +3,7 @@
 # Built on sdr-base (digest-pinned so Dependabot tracks the bump) for supply-chain consistency with
 # the other feeders — it carries the same reusable-workflow attestations, so the cluster's cosign /
 # SLSA policies admit it without a skip. It needs no SDR runtime itself, just python3 + paho-mqtt.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:589cc206e10c3d85d3c6233973357a9bd04880901e6e66db348682475909a89a AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:5153edec334357aef8634ad5f9d1c02fca05b204fc71a130c3db5c117896056a AS runtime
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
