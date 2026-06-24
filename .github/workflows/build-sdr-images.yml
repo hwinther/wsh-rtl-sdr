@@ -176,7 +176,7 @@ jobs:
     # Run when: non-cron trigger (precheck short-circuits to changed=true), upstream
     # genuinely changed, or precheck failed (defensive — never silently skip).
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
-    uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@f65228ea4276b3ff26409146ccd1191c728c811a # v1.65.0
+    uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
 
   sdr-base:
     needs: version
@@ -190,7 +190,7 @@ jobs:
           - debian_release: buster
             extra_build_args: |
               USE_ARCHIVE_REPOS=true
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@f65228ea4276b3ff26409146ccd1191c728c811a # v1.65.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
     with:
       container_image_name_postfix: sdr-base
       build_context: images/sdr-base
@@ -204,7 +204,7 @@ jobs:
       tag_suffix: ${{ matrix.debian_release }}
       additional_tags: ${{ matrix.debian_release }}
       artifact_name_suffix: ${{ matrix.debian_release }}
-      grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
+      grype_fail_build: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.grype_fail_build == 'false' && 'never' || 'auto' }}
       # v1.54.0 decoupled SBOM/Grype generation from cosign signing — so we can
       # turn off reusable-side signing while still getting the predicate artifacts
       # the consumer-side sdr-base-sign job needs to download. End state: ONE
@@ -231,7 +231,7 @@ jobs:
           - debian_release: buster
             extra_build_args: |
               INSTALL_PYTHON_BUILD_TOOLS=false
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@f65228ea4276b3ff26409146ccd1191c728c811a # v1.65.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
     with:
       container_image_name_postfix: sdr-build
       build_context: images/sdr-build
@@ -240,7 +240,7 @@ jobs:
       tag_suffix: ${{ matrix.debian_release }}
       additional_tags: ${{ matrix.debian_release }}
       artifact_name_suffix: ${{ matrix.debian_release }}
-      grype_fail_build: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.grype_fail_build || 'true') }}
+      grype_fail_build: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.grype_fail_build == 'false' && 'never' || 'auto' }}
       # See sdr-base above for the cosign_sign_enabled rationale.
       cosign_sign_enabled: false
       attest_build_provenance_enabled: false
@@ -260,12 +260,13 @@ jobs:
   #
   # Per-matrix-entry data flow (matrix outputs from reusables are race-based, so we don't
   # rely on them — each entry looks up its own state):
-  #   - Digest: `crane digest ghcr.io/.../sdr-base:${distro}` against the just-pushed tag.
-  #   - CycloneDX SBOM: download the matrix-disambiguated artifact uploaded by _scan-image
-  #     (name pattern from artifact_name_suffix=${{ matrix.debian_release }}).
-  #   - Grype JSON: ditto, via the v1.53.0 _scan-image upload that this commit relies on.
+  #   - Digest: v2 sign-image auto-resolves it from the per-distro container_tags entry.
+  #   - SBOM/Grype: v2 sign-image downloads the matrix-disambiguated artifacts itself
+  #     (names from artifact_name_suffix=${{ matrix.debian_release }}).
   sdr-base-sign:
-    needs: [version, sdr-base]
+    # precheck included so the if: gate below can read needs.precheck.* (it was missing
+    # before — the gate silently evaluated false, so this sign job never actually ran).
+    needs: [precheck, version, sdr-base]
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
     strategy:
       fail-fast: false
@@ -290,81 +291,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install crane
-        shell: bash
-        env:
-          CRANE_VERSION: v0.20.6
-        run: |
-          set -euo pipefail
-          curl -fsSL -o /tmp/crane.tar.gz \
-              "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
-          sudo tar -C /usr/local/bin -xzf /tmp/crane.tar.gz crane
-          crane version
-
-      - name: Resolve image digest from registry
-        id: digest
-        shell: bash
-        env:
-          IMAGE: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ matrix.debian_release }}
-        run: |
-          set -euo pipefail
-          digest=$(crane digest "$IMAGE")
-          echo "value=$digest" >> "$GITHUB_OUTPUT"
-          echo "Resolved $IMAGE → $digest"
-
-      - name: Download CycloneDX SBOM artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: container-image-sdr-base-${{ matrix.debian_release }}.cyclonedx.json
-          path: ${{ runner.temp }}/sbom
-
-      - name: Download Grype JSON artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: container-image-sdr-base-${{ matrix.debian_release }}.grype.json
-          path: ${{ runner.temp }}/grype
-
-      - name: Resolve predicate paths
-        id: predicates
-        shell: bash
-        env:
-          SBOM_DIR: ${{ runner.temp }}/sbom
-          GRYPE_DIR: ${{ runner.temp }}/grype
-        run: |
-          set -euo pipefail
-          CYCLONEDX=$(find "$SBOM_DIR" -maxdepth 2 -type f -name '*.cyclonedx.json' | head -1)
-          [ -n "$CYCLONEDX" ] || { echo "::error::No CycloneDX SBOM in $SBOM_DIR"; exit 1; }
-          GRYPE=$(find "$GRYPE_DIR" -maxdepth 2 -type f -name '*.grype.json' -o -name '*.json' | head -1)
-          [ -n "$GRYPE" ] || { echo "::error::No Grype JSON in $GRYPE_DIR"; exit 1; }
-          echo "sbom_cyclonedx_path=$CYCLONEDX" >> "$GITHUB_OUTPUT"
-          echo "grype_json_path=$GRYPE" >> "$GITHUB_OUTPUT"
-
       - name: Sign and attest (consumer-context OIDC)
-        uses: hwinther/reusable-workflows/.github/actions/sign-image@f65228ea4276b3ff26409146ccd1191c728c811a # v1.65.0
+        uses: hwinther/reusable-workflows/.github/actions/sign-image@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
         with:
           container_registry: ghcr.io
           repository: ${{ steps.repo.outputs.repository }}
           container_image_name_postfix: sdr-base
-          image_digest: ${{ steps.digest.outputs.value }}
-          # Tag format matches v1.55.0's tag_suffix convention (`${version}-${distro}`).
-          # cosign sign binds the signature to the digest the registry resolves these
-          # tags to, so all other tags pointing at the same digest (`:1.2-trixie`,
-          # `:1-trixie`, etc.) also verify against this signature.
+          # image_digest omitted -> v2 sign-image auto-resolves the manifest digest from
+          # the first container_tags entry (docker buildx imagetools inspect, using the
+          # docker login above). Recovers each matrix entry's own digest from its
+          # per-distro tag, so no manual crane lookup and no matrix last-writer-wins issue.
           container_tags: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ matrix.debian_release }},ghcr.io/${{ steps.repo.outputs.repository }}/sdr-base:${{ needs.version.outputs.version }}-${{ matrix.debian_release }}
-          sbom_cyclonedx_path: ${{ steps.predicates.outputs.sbom_cyclonedx_path }}
-          grype_json_path: ${{ steps.predicates.outputs.grype_json_path }}
+          # v2 sign-image downloads these matrix-disambiguated predicate artifacts itself
+          # (the job has actions: read) -- replaces the manual crane install + download +
+          # resolve-path steps that used to live here.
+          sbom_artifact_name: container-image-sdr-base-${{ matrix.debian_release }}.cyclonedx.json
+          grype_artifact_name: container-image-sdr-base-${{ matrix.debian_release }}.grype.json
           version: ${{ needs.version.outputs.version }}
-          # Cross-job sha256 pinning and expected_image_id left empty: matrix outputs
-          # from a reusable-workflow caller aren't matrix-paired (last-wins), so we
-          # can't forward the build job's per-entry hashes/digests reliably. The
-          # SBOM-image binding check inside sign-image falls back to inspecting the
-          # syft properties in the CycloneDX; that plus the registry-resolved digest
-          # is sufficient for homelab use.
 
   # Mirror of sdr-base-sign for sdr-build. Same structure — only container_image_name_postfix
   # and the upstream `needs:` chain differ.
   sdr-build-sign:
-    needs: [version, sdr-build]
+    # precheck included so the if: gate can read needs.precheck.* (was missing before).
+    needs: [precheck, version, sdr-build]
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
     strategy:
       fail-fast: false
@@ -389,62 +338,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install crane
-        shell: bash
-        env:
-          CRANE_VERSION: v0.20.6
-        run: |
-          set -euo pipefail
-          curl -fsSL -o /tmp/crane.tar.gz \
-              "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
-          sudo tar -C /usr/local/bin -xzf /tmp/crane.tar.gz crane
-
-      - name: Resolve image digest from registry
-        id: digest
-        shell: bash
-        env:
-          IMAGE: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ matrix.debian_release }}
-        run: |
-          set -euo pipefail
-          digest=$(crane digest "$IMAGE")
-          echo "value=$digest" >> "$GITHUB_OUTPUT"
-          echo "Resolved $IMAGE → $digest"
-
-      - name: Download CycloneDX SBOM artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: container-image-sdr-build-${{ matrix.debian_release }}.cyclonedx.json
-          path: ${{ runner.temp }}/sbom
-
-      - name: Download Grype JSON artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: container-image-sdr-build-${{ matrix.debian_release }}.grype.json
-          path: ${{ runner.temp }}/grype
-
-      - name: Resolve predicate paths
-        id: predicates
-        shell: bash
-        env:
-          SBOM_DIR: ${{ runner.temp }}/sbom
-          GRYPE_DIR: ${{ runner.temp }}/grype
-        run: |
-          set -euo pipefail
-          CYCLONEDX=$(find "$SBOM_DIR" -maxdepth 2 -type f -name '*.cyclonedx.json' | head -1)
-          [ -n "$CYCLONEDX" ] || { echo "::error::No CycloneDX SBOM in $SBOM_DIR"; exit 1; }
-          GRYPE=$(find "$GRYPE_DIR" -maxdepth 2 -type f -name '*.grype.json' -o -name '*.json' | head -1)
-          [ -n "$GRYPE" ] || { echo "::error::No Grype JSON in $GRYPE_DIR"; exit 1; }
-          echo "sbom_cyclonedx_path=$CYCLONEDX" >> "$GITHUB_OUTPUT"
-          echo "grype_json_path=$GRYPE" >> "$GITHUB_OUTPUT"
-
       - name: Sign and attest (consumer-context OIDC)
-        uses: hwinther/reusable-workflows/.github/actions/sign-image@f65228ea4276b3ff26409146ccd1191c728c811a # v1.65.0
+        uses: hwinther/reusable-workflows/.github/actions/sign-image@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
         with:
           container_registry: ghcr.io
           repository: ${{ steps.repo.outputs.repository }}
           container_image_name_postfix: sdr-build
-          image_digest: ${{ steps.digest.outputs.value }}
+          # image_digest omitted -> v2 sign-image auto-resolves it from the first
+          # container_tags entry (docker buildx imagetools inspect, using the docker
+          # login above). No manual crane lookup, no matrix last-writer-wins issue.
           container_tags: ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ matrix.debian_release }},ghcr.io/${{ steps.repo.outputs.repository }}/sdr-build:${{ needs.version.outputs.version }}-${{ matrix.debian_release }}
-          sbom_cyclonedx_path: ${{ steps.predicates.outputs.sbom_cyclonedx_path }}
-          grype_json_path: ${{ steps.predicates.outputs.grype_json_path }}
+          # v2 sign-image downloads these predicate artifacts itself (job has actions: read).
+          sbom_artifact_name: container-image-sdr-build-${{ matrix.debian_release }}.cyclonedx.json
+          grype_artifact_name: container-image-sdr-build-${{ matrix.debian_release }}.grype.json
           version: ${{ needs.version.outputs.version }}
