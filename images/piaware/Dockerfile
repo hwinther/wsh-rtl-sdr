@@ -1,5 +1,5 @@
 # Digest-pinned so Dependabot tracks sdr-base/sdr-build updates.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:5153edec334357aef8634ad5f9d1c02fca05b204fc71a130c3db5c117896056a AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:25fef79ace361ac937b9636ae376297dc00327f4f39ebe96b65fd6debfbd355e AS runtime
 FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:b6a3cb25482e9b1f54d64885e9ac6543069a9cdcb77186a8b0dde3b64d9214ce AS build
 
 FROM build AS build-piaware
