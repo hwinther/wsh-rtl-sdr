@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   dump1090-fa:
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@00fef736b925dfc7b70ab0476276ae1f59e1683b # v2.0.1
     with:
       container_image_name_postfix: dump1090-fa
       build_context: images/dump1090-fa
