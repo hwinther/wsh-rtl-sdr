@@ -75,8 +75,9 @@ jobs:
 
       # base images (build-sdr-images.yml) are intentionally NOT dispatched from here —
       # they rebuild on their own cadence (path changes + weekly cron + manual). All
-      # other application images (the 7 SDR feeders + gsm-tools) get rebuilt against
-      # the new v* tag so each release produces a fresh per-image semver-tagged build.
+      # other application images (SDR feeders + adsb-mqtt + dump1090-exporter +
+      # gsm-tools) get rebuilt against the new v* tag so each release produces a fresh
+      # per-image semver-tagged build. Keep this list in sync when adding a build-*.yml.
       # Skip-grype-gate forwards as grype_fail_build=false on each dispatched workflow.
       - name: Dispatch container build workflows
         env:
@@ -91,8 +92,10 @@ jobs:
             GRYPE_FAIL_BUILD=true
           fi
           for wf in \
+            build-adsb-mqtt.yml \
             build-adsbexchange.yml \
             build-ais-catcher.yml \
+            build-dump1090-exporter.yml \
             build-dump1090-fa.yml \
             build-fr24.yml \
             build-gsm-tools.yml \

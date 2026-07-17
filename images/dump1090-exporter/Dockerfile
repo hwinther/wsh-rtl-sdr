@@ -12,10 +12,16 @@ LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
 
+# --no-deps because dump1090exporter 22.3.0 (latest release, upstream unmaintained since 2022)
+# hard-pins aiohttp==3.8.1, whose C extensions predate Python 3.13 and can't even compile against
+# it. Its only real requirements are aiohttp + aioprometheus[aiohttp]==22.3.0 (whose own extra is
+# a loose aiohttp>=3.3.2), so we supply a modern aiohttp with prebuilt cp313 wheels for both
+# amd64 and aarch64 ourselves — no gcc needed. Bump the aiohttp pin manually when rebuilding.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 python3-venv && \
     python3 -m venv /opt/dump1090exporter && \
-    /opt/dump1090exporter/bin/pip install --no-cache-dir dump1090exporter==22.3.0 && \
+    /opt/dump1090exporter/bin/pip install --no-cache-dir --no-deps dump1090exporter==22.3.0 && \
+    /opt/dump1090exporter/bin/pip install --no-cache-dir "aioprometheus[aiohttp]==22.3.0" aiohttp==3.14.1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
