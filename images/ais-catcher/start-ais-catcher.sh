@@ -38,6 +38,8 @@ if [ -n "$MQTT_HOST" ]; then
     MQTT_ARG="-Q mqtt://${MQTT_USERNAME}:${MQTT_PASSWORD}@${MQTT_HOST}:${MQTT_PORT:-1883} topic ${MQTT_TOPIC:-ais/data} msgformat ${MQTT_MSGFORMAT:-JSON_FULL} client_id aiscatcher qos 0"
 fi
 
+# PROME serves Prometheus text at /metrics on the same -N web port (message counts by
+# type/channel, signal level/ppm, max distance) — scraped by the edge prometheus-agent.
 COMMAND="AIS-catcher \
     $VERBOSE_ARG \
     -M DT \
@@ -48,6 +50,7 @@ COMMAND="AIS-catcher \
     -N $AIS_CATCHER_PORT GEOJSON on STATION \"$STATION_NAME\" STATION_LINK $STATION_URL LAT $LAT LON $LON SHARE_LOC on \
     -N PLUGIN_DIR /usr/share/aiscatcher/my-plugins \
     -N REALTIME on \
+    -N PROME on \
     -d $DEVICE_INDEX \
     $MQTT_ARG \
     $EXTRA_ARGS"

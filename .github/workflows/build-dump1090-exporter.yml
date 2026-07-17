@@ -1,0 +1,41 @@
+name: Build dump1090-exporter container image
+
+# Prometheus exporter for dump1090-fa reception stats (sidecar reading the shared
+# /run/dump1090-fa emptyDir). Pipeline shape matches build-adsb-mqtt.yml — uses the shared
+# reusable docker-container workflow so the image gets the SLSA provenance the cluster's
+# supply-chain policies require.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grype_fail_build:
+        description: "Fail the build if Grype finds vulnerabilities"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "images/dump1090-exporter/**"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+  actions: write
+  security-events: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dump1090-exporter:
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@a0e722a6a3002b2095899c71861906262160b125 # v2.0.0
+    with:
+      container_image_name_postfix: dump1090-exporter
+      build_context: images/dump1090-exporter
+      dockerfile: images/dump1090-exporter/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      grype_fail_build: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.grype_fail_build == 'false' && 'never' || 'auto' }}
