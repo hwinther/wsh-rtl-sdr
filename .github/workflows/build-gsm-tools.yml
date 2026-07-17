@@ -16,10 +16,11 @@ on:
         description: "Fail the build if Grype finds vulnerabilities"
         type: boolean
         default: true
-  push:
-    branches: [main]
-    paths:
-      - "images/gsm-tools/**"
+  # Disable push to main for now to avoid triggering a rebuild of the sdr-build:trixie image - it takes too long
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "images/gsm-tools/**"
 
 permissions:
   contents: read

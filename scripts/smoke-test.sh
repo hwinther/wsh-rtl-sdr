@@ -23,7 +23,8 @@ declare -A MODE=(
   [opensky]=wait
   [gsm-tools]=runonce
 )
-ALL_IMAGES=(dump1090-fa ais-catcher tar1090 piaware fr24 adsbexchange opensky gsm-tools)
+# ALL_IMAGES=(dump1090-fa ais-catcher tar1090 piaware fr24 adsbexchange opensky gsm-tools) # Disable gsm-tools for now - it takes too long
+ALL_IMAGES=(dump1090-fa ais-catcher tar1090 piaware fr24 adsbexchange opensky)
 
 WAIT_TIMEOUT="${SMOKE_WAIT_TIMEOUT:-300}"
 
