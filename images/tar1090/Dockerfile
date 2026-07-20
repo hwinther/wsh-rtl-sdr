@@ -1,5 +1,5 @@
 # Digest-pinned so Dependabot tracks sdr-base updates. Runtime-only feeder.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:e3eb290a95052acf2b6741e205abc99d2b74c8a06e6f952ed1ed58080bb4c385 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:baf31a13783989f5097d95529237e0959c2af8f561fe02735bcd52bfe5e9c009 AS runtime
 
 FROM runtime AS install-dump1090-fa
 COPY tar1090-build-data /run/dump1090-fa
