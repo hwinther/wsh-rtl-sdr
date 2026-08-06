@@ -1,7 +1,7 @@
 # Digest-pinned so Dependabot's docker ecosystem can track updates. Dependabot will open
 # PRs when sdr-base:trixie / sdr-build:trixie digests advance in the registry (which
 # happens whenever images/sdr-{base,build} or upstream debian:trixie-slim updates).
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:e3eb290a95052acf2b6741e205abc99d2b74c8a06e6f952ed1ed58080bb4c385 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:acde81dbaa0699c5d642b0b1d81a7870e6bb0cedafb42967f91a4cc32590bb8f AS runtime
 FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:b6a3cb25482e9b1f54d64885e9ac6543069a9cdcb77186a8b0dde3b64d9214ce AS build
 
 FROM build AS build-adsbexchange
