@@ -1,6 +1,6 @@
 # Digest-pinned so Dependabot tracks sdr-base/sdr-build updates.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bullseye@sha256:407439957a17a04807112d6c61ed0906edc7b1d2705b33a95bb099169b80a1ef AS runtime
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bullseye@sha256:22f2d89124f129e8d9b88fc069d352d9c3a4f9005403e5435485dc25f3fd8430 AS build
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:bullseye@sha256:1ccf60fd91af12e201a44f830418e0c1b9af0f261e77a8923cce4966dc9639ab AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:bullseye@sha256:28aac25dc755059f42e26020fa894259b3d3f8a43b78199fd297a6fd83e34928 AS build
 
 FROM build AS build-dump1090-fa
 WORKDIR /src

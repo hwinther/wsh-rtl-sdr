@@ -1,5 +1,5 @@
 # Digest-pinned so Dependabot tracks sdr-base updates. Runtime-only feeder (no compile step).
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:e3eb290a95052acf2b6741e205abc99d2b74c8a06e6f952ed1ed58080bb4c385 AS runtime
+FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:60dd8d42f324542a90ad7df4bb73ab3bfe51fd35bac45b2e4b5c561b4686d0fd AS runtime
 
 FROM runtime AS install-flightradar24
 ARG TARGETPLATFORM
