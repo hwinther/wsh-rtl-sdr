@@ -99,7 +99,6 @@ jobs:
             build-dump1090-exporter.yml \
             build-dump1090-fa.yml \
             build-fr24.yml \
-\
             build-opensky.yml \
             build-piaware.yml \
             build-tar1090.yml ; do
