@@ -1,20 +1,21 @@
 # Per-image smoke-test orchestration. NOT for production.
 #
 # Usage (one image in isolation, builds if missing):
-#   docker compose -f docker-compose.test.yml --profile dump1090-fa up --build
+#   docker compose -f docker-compose.test.yml --profile readsb up --build
 #
 # Prefer the wrapper, which adds assertions + guaranteed teardown:
 #   pwsh scripts/smoke-test.ps1 <image>     (Windows)
 #   bash scripts/smoke-test.sh  <image>     (Linux/CI)
 #
 # RF hardware is simulated WITHOUT a dongle:
-#   - dump1090-fa runs as a pure --net-only Beast/raw hub (EXTRA_ARGS).
+#   - readsb runs as a pure --net-only Beast/raw hub (network alias dump1090-fa).
 #     It doubles as the shared hub the network consumers connect to.
+#   - dump1090-fa (replaced by readsb in the cluster) is no longer tested here.
 #   - ais-catcher reads an infinite zero IQ stream (/dev/zero) instead of an
 #     RTL-SDR; its web server still comes up, which ais-catcher-probe checks.
 #   - gsm-tools is build-only: assert key SDR binaries resolve on PATH.
 #
-# Each service is gated behind a profile equal to its image name. dump1090-fa
+# Each service is gated behind a profile equal to its image name. readsb
 # is a member of every consumer profile so e.g. `--profile fr24` transitively
 # starts the hub and waits for it to become healthy before fr24 starts.
 
@@ -25,20 +26,68 @@ networks:
     driver: bridge
 
 services:
-  # --- RF image: ADS-B receiver, run as a no-SDR Beast/raw hub -------------
-  dump1090-fa:
+  # --- RF image: ADS-B decoder (readsb), run as a no-SDR Beast/raw hub ------
+  # --net-only => no SDR is opened; it still listens on 30002-30005/30104 and writes its JSON
+  # directory, which is the dongle simulation. The network alias keeps the consumers' default
+  # RECEIVER_HOST (dump1090-fa) working, as it does in the cluster, where the Service keeps that
+  # name. Distroless: no shell, so readsb-probe below carries the health check.
+  readsb:
     build:
-      context: ./images/dump1090-fa
-    image: wsh-rtl-sdr-smoketest/dump1090-fa
-    networks: [sdrtest]
-    environment:
-      # --net-only => no SDR is opened; still listens on 30002-30005 and the
-      # in-image HEALTHCHECK (TCP 30005) passes. This is the dongle simulation.
-      EXTRA_ARGS: "--net-only"
-      LAT: "59.91"
-      LON: "10.75"
+      context: ./images/readsb
+    image: wsh-rtl-sdr-smoketest/readsb
+    networks:
+      sdrtest:
+        aliases: [dump1090-fa]
+    command:
+      - --net-only
+      - --net-ro-port
+      - "30002"
+      - --net-sbs-port
+      - "30003"
+      - --net-bi-port
+      - "30004,30104"
+      - --net-bo-port
+      - "30005"
+      - --write-json
+      - /run/readsb
+      - --json-location-accuracy
+      - "1"
+      - --lat
+      - "59.91"
+      - --lon
+      - "10.75"
+      - --quiet
+    volumes:
+      - readsb-json:/run/readsb
+    depends_on:
+      readsb-json-init:
+        condition: service_completed_successfully
     # Shared hub: present in every consumer profile + its own.
-    profiles: [dump1090-fa, piaware, fr24, adsbexchange, opensky]
+    profiles: [readsb, piaware, fr24, adsbexchange, opensky]
+
+  # The JSON volume starts root-owned; readsb runs as distroless's nonroot (65532).
+  readsb-json-init:
+    image: busybox:1.37
+    command: ["chown", "65532:65532", "/run/readsb"]
+    volumes:
+      - readsb-json:/run/readsb
+    profiles: [readsb, piaware, fr24, adsbexchange, opensky]
+
+  # Pass condition for readsb, and what the consumers wait for: the Beast output port answers and
+  # readsb has written its JSON (receiver.json, stats.json, aircraft.json, as tar1090 and the
+  # exporter read them in the cluster).
+  readsb-probe:
+    image: busybox:1.37
+    networks: [sdrtest]
+    command: ["sleep", "infinity"]
+    volumes:
+      - readsb-json:/run/readsb:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w2 readsb 30005 && test -s /run/readsb/receiver.json && test -s /run/readsb/stats.json && test -s /run/readsb/aircraft.json"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    profiles: [readsb, piaware, fr24, adsbexchange, opensky]
 
   # --- RF image: AIS receiver, fed an infinite zero IQ stuck-no-dongle ------
   ais-catcher:
@@ -117,14 +166,14 @@ services:
     # In-image HEALTHCHECK (TCP 80) is the pass condition.
     profiles: [tar1090]
 
-  # --- Network consumers: need a healthy dump1090-fa hub -------------------
+  # --- Network consumers: need a healthy readsb hub ------------------------
   piaware:
     build:
       context: ./images/piaware
     image: wsh-rtl-sdr-smoketest/piaware
     networks: [sdrtest]
     depends_on:
-      dump1090-fa:
+      readsb-probe:
         condition: service_healthy
     environment:
       # start-piaware.sh exits unless LAT/LON/FEEDER_ID are all set.
@@ -141,7 +190,7 @@ services:
     image: wsh-rtl-sdr-smoketest/fr24
     networks: [sdrtest]
     depends_on:
-      dump1090-fa:
+      readsb-probe:
         condition: service_healthy
     environment:
       # Dummy key: fr24feed stays up retrying even when the key is rejected.
@@ -166,7 +215,7 @@ services:
     image: wsh-rtl-sdr-smoketest/adsbexchange
     networks: [sdrtest]
     depends_on:
-      dump1090-fa:
+      readsb-probe:
         condition: service_healthy
     environment:
       ADSBX_UUID: "00000000-0000-0000-0000-000000000000"
@@ -189,7 +238,7 @@ services:
     image: wsh-rtl-sdr-smoketest/opensky
     networks: [sdrtest]
     depends_on:
-      dump1090-fa:
+      readsb-probe:
         condition: service_healthy
     environment:
       LAT: "59"
@@ -220,3 +269,6 @@ services:
       - -lc
       - 'command -v rtl_sdr && command -v kal && command -v grgsm_livemon && echo "gsm-tools OK"'
     profiles: [gsm-tools]
+
+volumes:
+  readsb-json:

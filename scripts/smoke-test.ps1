@@ -4,7 +4,7 @@
   RTL-SDR hardware, via docker-compose.test.yml. Guarantees teardown.
 
 .EXAMPLE
-  pwsh scripts/smoke-test.ps1 dump1090-fa
+  pwsh scripts/smoke-test.ps1 readsb
   pwsh scripts/smoke-test.ps1 all
 
   Exits non-zero if any image fails its pass condition.
@@ -23,7 +23,7 @@ $WaitTimeout  = if ($env:SMOKE_WAIT_TIMEOUT) { $env:SMOKE_WAIT_TIMEOUT } else { 
 # image -> pass condition: 'wait' (healthy/running via compose --wait) or
 # 'runonce' (container must exit 0).
 $Mode = [ordered]@{
-  'dump1090-fa'  = 'wait'
+  'readsb'       = 'wait'
   'ais-catcher'  = 'wait'
   'tar1090'      = 'wait'
   'piaware'      = 'wait'

@@ -2,8 +2,8 @@ name: Smoke test container images
 
 # Builds and smoke-tests each image in isolation with NO RTL-SDR hardware,
 # using docker-compose.test.yml + scripts/smoke-test.sh. The RF images run in
-# no-SDR modes (dump1090-fa --net-only hub, ais-catcher reading /dev/zero);
-# network consumers are gated on a healthy dump1090-fa hub. amd64 only to keep CI fast.
+# no-SDR modes (readsb --net-only hub, ais-catcher reading /dev/zero);
+# network consumers are gated on a healthy readsb hub. amd64 only to keep CI fast.
 # gsm-tools is a developer tool with a long build and is not run here; test it locally with
 # `bash scripts/smoke-test.sh gsm-tools` (a build + binary-exists check).
 #
@@ -48,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - dump1090-fa
+          - readsb
           - ais-catcher
           - tar1090
           - piaware
@@ -68,23 +68,26 @@ jobs:
           IMAGE: ${{ matrix.image }}
         run: bash scripts/smoke-test.sh "$IMAGE"
 
-      # ais-catcher is one static binary on distroless: no package database, so an image scan finds
-      # nothing. The libraries compiled into it are listed in the CycloneDX SBOM the image carries;
-      # scan that instead (Kubescape reads the same file in the cluster via scanEmbeddedSBOMs).
+      # ais-catcher and readsb are each one static binary on distroless: no package database, so an
+      # image scan finds nothing. The libraries compiled into them are listed in the CycloneDX SBOM
+      # each image carries; scan that instead (Kubescape reads the same file in the cluster via
+      # scanEmbeddedSBOMs).
       - name: Extract the embedded SBOM
-        if: ${{ matrix.image == 'ais-catcher' && (!inputs.image || inputs.image == matrix.image) }}
+        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
+        env:
+          IMAGE: ${{ matrix.image }}
         run: |
           set -euo pipefail
-          cid=$(docker create wsh-rtl-sdr-smoketest/ais-catcher)
-          docker cp "$cid:/usr/share/sbom/ais-catcher.cdx.json" "$RUNNER_TEMP/ais-catcher.cdx.json"
+          cid=$(docker create "wsh-rtl-sdr-smoketest/$IMAGE")
+          docker cp "$cid:/usr/share/sbom/$IMAGE.cdx.json" "$RUNNER_TEMP/embedded.cdx.json"
           docker rm "$cid" >/dev/null
-          jq -r '.components[] | "\(.name) \(.version)"' "$RUNNER_TEMP/ais-catcher.cdx.json"
+          jq -r '.components[] | "\(.name) \(.version)"' "$RUNNER_TEMP/embedded.cdx.json"
 
       - name: Scan the embedded SBOM
-        if: ${{ matrix.image == 'ais-catcher' && (!inputs.image || inputs.image == matrix.image) }}
+        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
-          sbom: ${{ runner.temp }}/ais-catcher.cdx.json
+          sbom: ${{ runner.temp }}/embedded.cdx.json
           severity-cutoff: high
           only-fixed: true
           output-format: table
