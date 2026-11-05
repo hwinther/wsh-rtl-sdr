@@ -16,7 +16,7 @@
 # AIS-catcher follows upstream main: releases are rare, and upstream itself only maintains the
 # image it builds from main (`edge`). bump-sources.yml moves this to the newest main commit at least
 # 7 days old (Dependabot's cooldown), one PR a week.
-ARG AIS_CATCHER_REF=9739b81caf540e0e67b98447899cb28905a4f909
+ARG AIS_CATCHER_REF=08137f19176961987088663bee0291505a28f25e
 
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.10.0@sha256:40fe21f44bb8cddf1eb1226db190d0a984118f62ee02a91b77d99448d28264a6 AS xx
 
