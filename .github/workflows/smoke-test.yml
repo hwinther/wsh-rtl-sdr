@@ -83,6 +83,26 @@ jobs:
           docker rm "$cid" >/dev/null
           jq -r '.components[] | "\(.name) \(.version)"' "$RUNNER_TEMP/embedded.cdx.json"
 
+      # The Grype vulnerability DB (~75 s to download) under the same key and directory as
+      # reusable-workflows' _scan-image, so this restores what the image builds in this repo already
+      # cached (PRs read main's cache). Anchore publishes one DB a day around 06:30 UTC, hence the
+      # key rolls over at 08:00 UTC; Grype still checks for a newer DB on a hit.
+      - name: Grype DB cache key
+        id: grype-db
+        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
+        run: |
+          set -euo pipefail
+          echo "key=grype-db-v6-$(date -u -d '-8 hours' +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "dir=${XDG_CACHE_HOME:-$HOME/.cache}/grype/db" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Grype DB
+        id: grype-db-restore
+        if: ${{ steps.grype-db.outputs.key != '' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.grype-db.outputs.dir }}
+          key: ${{ steps.grype-db.outputs.key }}
+
       - name: Scan the embedded SBOM
         if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
@@ -91,3 +111,22 @@ jobs:
           severity-cutoff: high
           only-fixed: true
           output-format: table
+
+      # On a miss, keep today's DB for the next run (parallel jobs race for the key; the losers only
+      # log a warning). hashFiles() only sees the workspace, so the DB's presence is checked here.
+      - name: Check for a new Grype DB
+        id: grype-db-new
+        if: ${{ always() && steps.grype-db.outputs.key != '' && steps.grype-db-restore.outputs.cache-hit != 'true' }}
+        env:
+          DB_DIR: ${{ steps.grype-db.outputs.dir }}
+        run: |
+          if [ -n "$(find "$DB_DIR" -name '*.db' -print -quit 2>/dev/null)" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save Grype DB
+        if: ${{ always() && steps.grype-db-new.outputs.present == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.grype-db.outputs.dir }}
+          key: ${{ steps.grype-db.outputs.key }}
