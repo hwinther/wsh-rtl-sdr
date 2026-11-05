@@ -97,7 +97,7 @@ jobs:
             build-adsbexchange.yml \
             build-ais-catcher.yml \
             build-dump1090-exporter.yml \
-            build-dump1090-fa.yml \
+            build-readsb.yml \
             build-fr24.yml \
             build-opensky.yml \
             build-piaware.yml \

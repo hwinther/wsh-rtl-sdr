@@ -14,7 +14,7 @@ COMPOSE=(docker compose -f "${COMPOSE_FILE}")
 # image -> pass condition: "wait" (healthy/running via compose --wait) or
 # "runonce" (container must exit 0).
 declare -A MODE=(
-  [dump1090-fa]=wait
+  [readsb]=wait
   [ais-catcher]=wait
   [tar1090]=wait
   [piaware]=wait
@@ -23,8 +23,8 @@ declare -A MODE=(
   [opensky]=wait
   [gsm-tools]=runonce
 )
-# ALL_IMAGES=(dump1090-fa ais-catcher tar1090 piaware fr24 adsbexchange opensky gsm-tools) # Disable gsm-tools for now - it takes too long
-ALL_IMAGES=(dump1090-fa ais-catcher tar1090 piaware fr24 adsbexchange opensky)
+# ALL_IMAGES=(readsb ais-catcher tar1090 piaware fr24 adsbexchange opensky gsm-tools) # Disable gsm-tools for now - it takes too long
+ALL_IMAGES=(readsb ais-catcher tar1090 piaware fr24 adsbexchange opensky)
 
 WAIT_TIMEOUT="${SMOKE_WAIT_TIMEOUT:-300}"
 

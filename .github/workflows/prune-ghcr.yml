@@ -37,8 +37,8 @@ jobs:
       # || false fallback makes scheduled runs actually prune.
       dry_run: ${{ inputs.dry_run || false }}
       # Filter discovery to GHCR packages under this repo. Currently:
-      # sdr-base, sdr-build, gsm-tools + 7 feeders (adsbexchange, ais-catcher,
-      # dump1090-fa, fr24, opensky, piaware, tar1090) — all under wsh-rtl-sdr/.
+      # sdr-base, sdr-build, gsm-tools + the feeders (adsbexchange, ais-catcher,
+      # dump1090-fa, fr24, opensky, piaware, readsb, tar1090) — all under wsh-rtl-sdr/.
       package_namespace_prefix: wsh-rtl-sdr/
       # When set on a manual run, bypasses the smart prune and deletes the
       # entire named package via the GHCR package DELETE API. Cron runs leave
