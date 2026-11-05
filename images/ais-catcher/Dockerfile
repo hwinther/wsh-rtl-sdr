@@ -53,6 +53,12 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=build /build/AIS-catcher /usr/bin/AIS-catcher
 COPY --from=build /build/ais-catcher.cdx.json /usr/share/sbom/ais-catcher.cdx.json
+# Web UI plugins (-N PLUGIN_DIR). The vessel/location lookups come from the same AIS-catcher commit
+# as the binary, so they move with AIS_CATCHER_REF and match its plugin API. MarineTraffic's is left
+# out: upstream stubbed it, since MarineTraffic blocks external links. moremaps.pjs is from
+# jvde-github/AIS-Catcher-PLUGINS at acb3c44 (2026-05-09, plugin API v5).
+COPY --from=build /src/plugins/google_option.pjs /src/plugins/shipxplorer_option.pjs \
+     /src/plugins/vesselfinder_option.pjs /usr/share/aiscatcher/my-plugins/
 COPY ais-catcher-plugins /usr/share/aiscatcher/my-plugins
 
 # The web UI, API and /metrics. The command line comes from the Deployment's args.
