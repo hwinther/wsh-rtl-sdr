@@ -11,7 +11,7 @@
 #   - dump1090-fa runs as a pure --net-only Beast/raw hub (EXTRA_ARGS).
 #     It doubles as the shared hub the network consumers connect to.
 #   - ais-catcher reads an infinite zero IQ stream (/dev/zero) instead of an
-#     RTL-SDR; its web server still comes up so the in-image healthcheck passes.
+#     RTL-SDR; its web server still comes up, which ais-catcher-probe checks.
 #   - gsm-tools is build-only: assert key SDR binaries resolve on PATH.
 #
 # Each service is gated behind a profile equal to its image name. dump1090-fa
@@ -46,18 +46,66 @@ services:
       context: ./images/ais-catcher
     image: wsh-rtl-sdr-smoketest/ais-catcher
     networks: [sdrtest]
-    environment:
-      AIS_CATCHER_PORT: "8100"
-    # Deliberately bypass start-ais-catcher.sh (it hard-codes a `-d` RTL-SDR
-    # device). Read /dev/zero as raw CU8 so the decoder + web server stay up
-    # with no hardware and no sample data committed to the repo. The in-image
-    # HEALTHCHECK (TCP 8100) is the pass condition.
-    entrypoint:
-      - /bin/bash
-      - -c
-      # $$ escapes Compose interpolation so the container shell expands the
-      # AIS_CATCHER_PORT env var (set above / image ENV), not the host.
-      - 'AIS-catcher -v 10 -r CU8 /dev/zero -N "$${AIS_CATCHER_PORT}" GEOJSON on'
+    # The edge Deployment's command line, with /dev/zero read as raw CU8 in place of the dongle
+    # (`-d <serial>`), so the decoder and web server stay up with no hardware. The image is
+    # distroless: no shell, so this is the exec-form argument list. The `-u` feed targets a
+    # host name: the static (musl) binary must resolve it, or AIS-catcher exits ("Name does not
+    # resolve") and the run fails. No `-X` or MQTT: CI must not feed aiscatcher.org.
+    command:
+      - -M
+      - DT
+      - -gr
+      - TUNER
+      - "38.6"
+      - RTLAGC
+      - "off"
+      - BIASTEE
+      - "on"
+      - -s
+      - 2304k
+      - -r
+      - CU8
+      - /dev/zero
+      - -o
+      - "0"
+      - -N
+      - "8100"
+      - GEOJSON
+      - "on"
+      - STATION
+      - Smoke test
+      - LAT
+      - "59.91"
+      - LON
+      - "10.75"
+      - -N
+      - PLUGIN_DIR
+      - /usr/share/aiscatcher/my-plugins
+      - -N
+      - REALTIME
+      - "on"
+      - -N
+      - PROME
+      - "on"
+      - -u
+      - ais-catcher-probe
+      - "2233"
+    depends_on:
+      ais-catcher-probe:
+        condition: service_started
+    profiles: [ais-catcher]
+
+  # The distroless image has no shell for a HEALTHCHECK, so this probe's healthcheck is the pass
+  # condition: the web UI answers and /metrics serves AIS-catcher's counters.
+  ais-catcher-probe:
+    image: curlimages/curl:8.17.0
+    networks: [sdrtest]
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://ais-catcher:8100/ >/dev/null && curl -fsS http://ais-catcher:8100/metrics | grep -q '^ais_stat_count '"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
     profiles: [ais-catcher]
 
   # --- Web UI only: nginx, no hub required ---------------------------------

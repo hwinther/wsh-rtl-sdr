@@ -12,6 +12,11 @@ name: Smoke test container images
 
 on:
   workflow_dispatch:
+    inputs:
+      image:
+        description: "Only this image (empty: all). bump-sources.yml dispatches one per bump PR."
+        required: false
+        default: ""
   pull_request:
     branches: ["**"]
     paths:
@@ -52,9 +57,34 @@ jobs:
           - gsm-tools
     steps:
       - name: Checkout repository
+        if: ${{ !inputs.image || inputs.image == matrix.image }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Smoke test ${{ matrix.image }}
-        run: bash scripts/smoke-test.sh "${{ matrix.image }}"
+        if: ${{ !inputs.image || inputs.image == matrix.image }}
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: bash scripts/smoke-test.sh "$IMAGE"
+
+      # ais-catcher is one static binary on distroless: no package database, so an image scan finds
+      # nothing. The libraries compiled into it are listed in the CycloneDX SBOM the image carries;
+      # scan that instead (Kubescape reads the same file in the cluster via scanEmbeddedSBOMs).
+      - name: Extract the embedded SBOM
+        if: ${{ matrix.image == 'ais-catcher' && (!inputs.image || inputs.image == matrix.image) }}
+        run: |
+          set -euo pipefail
+          cid=$(docker create wsh-rtl-sdr-smoketest/ais-catcher)
+          docker cp "$cid:/usr/share/sbom/ais-catcher.cdx.json" "$RUNNER_TEMP/ais-catcher.cdx.json"
+          docker rm "$cid" >/dev/null
+          jq -r '.components[] | "\(.name) \(.version)"' "$RUNNER_TEMP/ais-catcher.cdx.json"
+
+      - name: Scan the embedded SBOM
+        if: ${{ matrix.image == 'ais-catcher' && (!inputs.image || inputs.image == matrix.image) }}
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: ${{ runner.temp }}/ais-catcher.cdx.json
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table

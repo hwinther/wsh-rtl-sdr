@@ -1,0 +1,109 @@
+name: Bump upstream sources
+
+# The images built from upstream source pin it by commit in a Dockerfile ARG, which Dependabot
+# cannot track. Once a week this moves each pin to the newest upstream commit that is at least 7
+# days old (the same cooldown as Dependabot) and opens or updates a PR. The merge touches the
+# image's directory, so its build workflow rebuilds it.
+#
+# A PR opened with GITHUB_TOKEN starts no pull_request workflows, so the smoke test is dispatched
+# on the PR branch explicitly; its checks land on the PR's head commit. Needs "Allow GitHub Actions
+# to create and approve pull requests" in the repository's Actions settings.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ais-catcher
+            dockerfile: images/ais-catcher/Dockerfile
+            arg: AIS_CATCHER_REF
+            repo: jvde-github/AIS-catcher
+            branch: main
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bump ${{ matrix.name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ matrix.name }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          ARG_NAME: ${{ matrix.arg }}
+          UPSTREAM: ${{ matrix.repo }}
+          UPSTREAM_BRANCH: ${{ matrix.branch }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          current=$(sed -nE "s/^ARG ${ARG_NAME}=([0-9a-f]{40})$/\1/p" "$DOCKERFILE")
+          [[ -n "$current" ]] || { echo "::error::No 'ARG ${ARG_NAME}=<sha>' in $DOCKERFILE"; exit 1; }
+
+          until=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          target=$(gh api "repos/${UPSTREAM}/commits?sha=${UPSTREAM_BRANCH}&until=${until}&per_page=1" --jq '.[0].sha')
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::No upstream commit before $until"; exit 1; }
+
+          if [[ "$target" == "$current" ]]; then
+            echo "$NAME is at ${current:0:7}, the newest ${UPSTREAM_BRANCH} commit older than 7 days."
+            exit 0
+          fi
+          # Never move backwards (a pin bumped by hand to a newer commit).
+          status=$(gh api "repos/${UPSTREAM}/compare/${current}...${target}" --jq '.status')
+          if [[ "$status" != "ahead" ]]; then
+            echo "$NAME: ${target:0:7} is not ahead of the pin ${current:0:7} (status: $status); nothing to do."
+            exit 0
+          fi
+
+          sed -i -E "s/^ARG ${ARG_NAME}=[0-9a-f]{40}$/ARG ${ARG_NAME}=${target}/" "$DOCKERFILE"
+
+          pr_branch="bump-sources/${NAME}"
+          title="build(${NAME}): ${UPSTREAM} ${UPSTREAM_BRANCH} at ${target:0:7}"
+          {
+            echo "Moves \`${ARG_NAME}\` to the newest \`${UPSTREAM_BRANCH}\` commit that is at least 7 days old."
+            echo
+            echo "Upstream changes: https://github.com/${UPSTREAM}/compare/${current}...${target}"
+            echo
+            echo "| Commit | Date | Subject |"
+            echo "|---|---|---|"
+            gh api "repos/${UPSTREAM}/compare/${current}...${target}" \
+              --jq '.commits | reverse | .[:40][] | "| `\(.sha[:7])` | \(.commit.author.date[:10]) | \(.commit.message | split("\n")[0] | gsub("\\|"; "\\|") | .[:120]) |"'
+            echo
+            echo "The smoke test is dispatched on this branch by bump-sources.yml."
+          } > "$RUNNER_TEMP/body.md"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$pr_branch"
+          git commit -q -m "$title" -- "$DOCKERFILE"
+          # The bot owns this branch, so an older unmerged bump is replaced, not stacked.
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${pr_branch}"
+
+          existing=$(gh pr list -R "$REPO" --head "$pr_branch" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" -R "$REPO" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+            echo "Updated PR #$existing"
+          else
+            gh pr create -R "$REPO" --base main --head "$pr_branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+          gh workflow run smoke-test.yml -R "$REPO" --ref "$pr_branch" -f image="$NAME"
