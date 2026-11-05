@@ -3,8 +3,9 @@ name: Smoke test container images
 # Builds and smoke-tests each image in isolation with NO RTL-SDR hardware,
 # using docker-compose.test.yml + scripts/smoke-test.sh. The RF images run in
 # no-SDR modes (dump1090-fa --net-only hub, ais-catcher reading /dev/zero);
-# network consumers are gated on a healthy dump1090-fa hub; gsm-tools is a
-# build + binary-exists check. amd64 only to keep CI fast.
+# network consumers are gated on a healthy dump1090-fa hub. amd64 only to keep CI fast.
+# gsm-tools is a developer tool with a long build and is not run here; test it locally with
+# `bash scripts/smoke-test.sh gsm-tools` (a build + binary-exists check).
 #
 # One matrix job per image == "test each of them separately" with independent
 # pass/fail status. Complements (does not replace) the publish pipeline in the
@@ -54,7 +55,6 @@ jobs:
           - fr24
           - adsbexchange
           - opensky
-          - gsm-tools
     steps:
       - name: Checkout repository
         if: ${{ !inputs.image || inputs.image == matrix.image }}

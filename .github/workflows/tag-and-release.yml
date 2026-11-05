@@ -75,9 +75,10 @@ jobs:
 
       # base images (build-sdr-images.yml) are intentionally NOT dispatched from here —
       # they rebuild on their own cadence (path changes + weekly cron + manual). All
-      # other application images (SDR feeders + adsb-mqtt + dump1090-exporter +
-      # gsm-tools) get rebuilt against the new v* tag so each release produces a fresh
-      # per-image semver-tagged build. Keep this list in sync when adding a build-*.yml.
+      # other application images (SDR feeders + adsb-mqtt + dump1090-exporter) get rebuilt
+      # against the new v* tag so each release produces a fresh per-image semver-tagged build.
+      # Keep this list in sync when adding a build-*.yml. gsm-tools is a developer tool and is
+      # left out: its long build runs only when build-gsm-tools.yml is dispatched by hand.
       # Skip-grype-gate forwards as grype_fail_build=false on each dispatched workflow.
       - name: Dispatch container build workflows
         env:
@@ -98,7 +99,7 @@ jobs:
             build-dump1090-exporter.yml \
             build-dump1090-fa.yml \
             build-fr24.yml \
-            build-gsm-tools.yml \
+\
             build-opensky.yml \
             build-piaware.yml \
             build-tar1090.yml ; do
