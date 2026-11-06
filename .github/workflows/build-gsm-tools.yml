@@ -41,3 +41,7 @@ jobs:
       # own packages (termshark's Go stdlib, python3-mako/-wheel/-jaraco from gnuradio's
       # dependencies), which only a Debian update can fix. Findings still go to code scanning.
       grype_fail_build: never
+      # No cosign CycloneDX/vuln attestations: the toolbox's SBOM (~6 MB zipped) is too large for
+      # the public Rekor log, which rejects the attestation entry ("giving up after 4 attempts").
+      # The image is still cosign-signed with SLSA provenance, and Kyverno never sees it.
+      cosign_supply_chain_attest_enabled: false
