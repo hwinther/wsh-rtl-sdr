@@ -241,13 +241,16 @@ services:
     depends_on:
       readsb-probe:
         condition: service_healthy
-    environment:
-      # start-piaware.sh exits unless LAT/LON/FEEDER_ID are all set.
-      LAT: "59.91"
-      LON: "10.75"
-      FEEDER_ID: "00000000-0000-0000-0000-000000000000"
-      # RECEIVER_*/MLAT_* default to dump1090-fa in the image.
-    # In-image HEALTHCHECK (piaware.pid process alive) is the pass condition.
+    # The edge Deployment mounts the same file from its Secret, with the real feeder-id. Here no
+    # feeder-id and adept-serverhosts 127.0.0.1: CI must not log in to FlightAware (a guest login
+    # registers a new feeder ID every run). piaware keeps retrying the login and stays up, which is
+    # the pass condition: the image runs and parses the config.
+    configs:
+      - source: piaware-conf
+        target: /etc/piaware.conf
+    tmpfs:
+      - /var/cache/piaware:uid=65532,gid=65532
+      - /run/piaware:uid=65532,gid=65532
     profiles: [piaware]
 
   fr24:
@@ -316,6 +319,18 @@ volumes:
   readsb-json:
 
 configs:
+  piaware-conf:
+    content: |
+      allow-auto-updates no
+      allow-manual-updates no
+      allow-mlat yes
+      mlat-results yes
+      receiver-type other
+      receiver-host dump1090-fa
+      receiver-port 30005
+      mlat-results-format beast,connect,dump1090-fa:30104
+      use-gpsd no
+      adept-serverhosts 127.0.0.1
   opensky-conf:
     content: |
       [GPS]
@@ -325,7 +340,7 @@ configs:
 
       [DEVICE]
       Type=default
-      serial=0000000000
+      serial 0000000000
 
       [IDENT]
       Username=smoketest

@@ -1,116 +1,48 @@
-# Digest-pinned so Dependabot tracks sdr-base/sdr-build updates.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:334cec36506c841f4ce36c4dc52ee4b26eed8a6f8dd43f7f29074f551f968f7b AS runtime
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:b6a3cb25482e9b1f54d64885e9ac6543069a9cdcb77186a8b0dde3b64d9214ce AS build
+# syntax=docker/dockerfile:1
+#
+# piaware: FlightAware's feeder (piaware, tcl) with faup1090 and fa-mlat-client (python), built from
+# FlightAware's piaware_builder at a pinned tag into a .deb and installed on plain debian:trixie-slim.
+# The runtime needs tcl and python, so no distroless; but no sdr-base, s6, lighttpd/piaware-web,
+# socat or start script either: piaware itself is the entrypoint.
+#
+# Configuration: /etc/piaware.conf, mounted from the Deployment's Secret (it holds feeder-id).
+# receiver-type=relay points faup1090 and fa-mlat-client straight at dump1090-fa:30005 (the old
+# image proxied that to localhost with socat for receiver-type=other). piaware writes to
+# /var/cache/piaware and /run/piaware, which must be writable (emptyDirs).
+#
+# Updates: Dependabot bumps the debian digest. A new piaware_builder tag is a manual PIAWARE_VERSION
+# bump (https://github.com/flightaware/piaware_builder/tags).
 
-FROM build AS build-piaware
-WORKDIR /src
-RUN git clone https://github.com/flightaware/piaware_builder.git
-WORKDIR /src/piaware_builder
-RUN ./sensible-build.sh trixie
-WORKDIR /src/piaware_builder/package-trixie
-# trixie's debian/control declares build-deps (python3-filelock,
-# python3-pyasyncore, ...) not present in the base image. build-dep reads the
-# generated control and installs exactly what this distribution requires.
-RUN apt-get update && \
-    apt-get -y build-dep . && \
-    dpkg-buildpackage -b --no-sign && \
-    apt-get clean && \
-    mkdir -p /opt/packages && \
-    cp -f /src/piaware_builder/*.deb /opt/packages
+ARG PIAWARE_VERSION=v11.1
 
-FROM build AS build-piaware-web
-WORKDIR /src
-RUN git clone https://github.com/flightaware/piaware-web.git
-WORKDIR /src/piaware-web
-# piaware-web's prepare-build.sh has no trixie case yet ("Don't know how to
-# build for a distribution named trixie"). bookworm is its newest target and
-# only sets a changelog distribution -- piaware-web ships static web assets,
-# so the resulting .deb installs cleanly on the trixie runtime regardless.
-RUN ./prepare-build.sh bookworm
-WORKDIR /src/piaware-web/package-bookworm
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS build
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
-    apt-get -y build-dep . && \
-    dpkg-buildpackage -b --no-sign && \
-    apt-get clean && \
-    mkdir -p /opt/packages && \
-    cp -f /src/piaware-web/*.deb /opt/packages
-
-FROM runtime AS install
-COPY --from=build-piaware /opt/packages /opt/packages
-COPY --from=build-piaware-web /opt/packages /opt/packages
-# apt-get update is required here: the parent layer cleaned /var/lib/apt/lists,
-# and the .deb dependencies pull packages whose binNMU versions Debian
-# routinely supersedes (e.g. libpam-cap +b2 -> +b3), 404'ing without a refresh.
-RUN apt-get update && \
-    apt -y install /opt/packages/*.deb && \
-    apt-get clean && \
+    apt-get install -y --no-install-recommends build-essential ca-certificates debhelper devscripts \
+        equivs git wget && \
     rm -rf /var/lib/apt/lists/*
+ARG PIAWARE_VERSION
+RUN git clone -c advice.detachedHead=false --depth=1 --branch "$PIAWARE_VERSION" \
+        https://github.com/flightaware/piaware_builder.git /src
+WORKDIR /src
+# sensible-build.sh clones piaware, tcllauncher, dump1090 (faup1090) and mlat-client at the versions
+# this piaware_builder tag pins, and writes package-trixie/debian; build-dep installs what that
+# control file asks for.
+RUN ./sensible-build.sh trixie && \
+    cd package-trixie && \
+    apt-get update && \
+    apt-get -y build-dep . && \
+    dpkg-buildpackage -b --no-sign && \
+    mkdir -p /out && cp /src/piaware_*.deb /out/
 
-FROM install AS final
-RUN mkdir -p /run/piaware
-COPY --chmod=755 start-piaware.sh /srv/start-piaware.sh
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
+LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
+ENV DEBIAN_FRONTEND=noninteractive
+COPY --from=build /out/ /tmp/piaware/
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends /tmp/piaware/piaware_*.deb && \
+    rm -rf /var/lib/apt/lists/* /tmp/piaware && \
+    install -d -o 65532 -g 65532 /var/cache/piaware /run/piaware
 
-#region lighttpd
-COPY <<EOF /etc/s6-overlay/s6-rc.d/lighttpd/type
-longrun
-EOF
-COPY --chmod=700 <<EOF /etc/s6-overlay/s6-rc.d/lighttpd/run
-#!/command/execlineb -P
-/usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf -D
-EOF
-RUN touch /etc/s6-overlay/s6-rc.d/user/contents.d/lighttpd && \
-    mkdir -p /etc/s6-overlay/s6-rc.d/lighttpd/dependencies.d && \
-    touch /etc/s6-overlay/s6-rc.d/lighttpd/dependencies.d/piaware
-#endregion lighttpd
-
-#region socat-30005
-COPY <<EOF /etc/s6-overlay/s6-rc.d/socat-30005/type
-longrun
-EOF
-COPY --chmod=700 <<EOF /etc/s6-overlay/s6-rc.d/socat-30005/run
-#!/command/execlineb -P
-socat -U TCP-LISTEN:30005,reuseaddr,fork TCP-CONNECT:dump1090-fa:30005
-EOF
-RUN touch /etc/s6-overlay/s6-rc.d/user/contents.d/socat-30005
-#endregion socat-30005
-
-#region socat-30104
-COPY <<EOF /etc/s6-overlay/s6-rc.d/socat-30104/type
-longrun
-EOF
-COPY --chmod=700 <<EOF /etc/s6-overlay/s6-rc.d/socat-30104/run
-#!/command/execlineb -P
-socat -U TCP-LISTEN:30104,reuseaddr,fork TCP-CONNECT:dump1090-fa:30104
-EOF
-RUN touch /etc/s6-overlay/s6-rc.d/user/contents.d/socat-30104
-#endregion socat-30104
-
-#region piaware
-COPY <<EOF /etc/s6-overlay/s6-rc.d/piaware/type
-longrun
-EOF
-COPY --chmod=700 <<EOF /etc/s6-overlay/s6-rc.d/piaware/run
-#!/command/execlineb -P
-/srv/start-piaware.sh
-EOF
-RUN touch /etc/s6-overlay/s6-rc.d/user/contents.d/piaware
-#endregion piaware
-
-# https://www.flightaware.com/adsb/piaware/advanced_configuration
-ENV RECEIVER_TYPE="other"
-ENV RECEIVER_HOST="dump1090-fa"
-ENV RECEIVER_PORT="30005"
-ENV MLAT_BEAST_HOST="dump1090-fa"
-ENV MLAT_BEAST_PORT="30104"
-ENV DEBUG="false"
-
-# Lighttpd HTTP server
-EXPOSE 80
-# Beast output listen port
-EXPOSE 30105
-# Basestation output listen port
-EXPOSE 30106
-
-HEALTHCHECK --start-period=5s --interval=30s --timeout=5s --retries=3 CMD ["bash", "-c", "if [ -f /run/piaware/piaware.pid ]; then PID=$(cat /run/piaware/piaware.pid); if ps -p $PID > /dev/null; then exit 0; else exit 1; fi; else exit 1; fi"]
-ENTRYPOINT [ "/init" ]
-# CMD [ "/srv/start-piaware.sh" ]
+USER 65532:65532
+ENTRYPOINT ["/usr/bin/piaware", "-plainlog", "-statusfile", "/run/piaware/status.json"]

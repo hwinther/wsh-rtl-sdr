@@ -1,8 +1,8 @@
 name: Build piaware container image
 
-# Feeder image (consumes sdr-base/sdr-build:trixie).
+# Feeder image: FlightAware piaware from piaware_builder on plain debian:trixie-slim (see images/piaware/Dockerfile).
 # Rebuilt when tag-and-release.yml dispatches it for a v* tag, on workflow_dispatch, and on merges
-# that touch images/piaware/ (Dependabot's sdr-base/sdr-build digest bumps).
+# that touch images/piaware/ (Dependabot's debian digest bumps, piaware_builder version bumps).
 
 on:
   workflow_dispatch:
