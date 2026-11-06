@@ -1,0 +1,116 @@
+name: Bump fr24feed
+
+# images/fr24 pins Flightradar24's fr24feed (a static binary from repo-feed.flightradar24.com) by
+# version plus one sha256 per architecture, which Dependabot cannot track. Once a week this reads
+# Flightradar24's fr24feed_versions.json, moves the pin to the published version when its release
+# date is at least 7 days old (the same cooldown as Dependabot), recomputes both hashes from the
+# downloads, and opens or updates a PR. The merge touches images/fr24/, so build-fr24.yml rebuilds.
+#
+# A PR opened with GITHUB_TOKEN starts no pull_request workflows, so the smoke test is dispatched
+# on the PR branch explicitly; its checks land on the PR's head commit.
+
+on:
+  schedule:
+    - cron: "27 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bump fr24feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DOCKERFILE: images/fr24/Dockerfile
+          FEED: https://repo-feed.flightradar24.com
+        run: |
+          set -euo pipefail
+
+          current=$(sed -nE 's/^ARG FR24FEED_VERSION=([0-9][0-9.]*-[0-9]+)$/\1/p' "$DOCKERFILE")
+          [[ -n "$current" ]] || { echo "::error::No 'ARG FR24FEED_VERSION=' in $DOCKERFILE"; exit 1; }
+
+          curl -fsSL "$FEED/fr24feed_versions.json" -o "$RUNNER_TEMP/versions.json"
+          # The image downloads the amd64 and arm64 tarballs; both must be at the same version.
+          read -r v_amd64 d_amd64 < <(jq -r '.platform.linux_x86_64_tgz | "\(.version) \(.release_date)"' "$RUNNER_TEMP/versions.json")
+          read -r v_arm64 d_arm64 < <(jq -r '.platform.linux_arm64_tgz | "\(.version) \(.release_date)"' "$RUNNER_TEMP/versions.json")
+          if [[ "$v_amd64" != "$v_arm64" ]]; then
+            echo "fr24feed_versions.json lists amd64 $v_amd64 and arm64 $v_arm64; waiting until they match."
+            exit 0
+          fi
+          target=$v_amd64
+          [[ "$target" =~ ^[0-9][0-9.]*-[0-9]+$ ]] || { echo "::error::Unexpected version '$target'"; exit 1; }
+
+          released=$(printf '%s\n%s\n' "$d_amd64" "$d_arm64" | sort | tail -1)
+          if (( $(date -u -d "$released" +%s) > $(date -u -d '7 days ago' +%s) )); then
+            echo "fr24feed $target was released $released, less than 7 days ago. Nothing to do yet."
+            exit 0
+          fi
+
+          # Never move backwards (a pin bumped by hand to a newer version).
+          newest=$(printf '%s\n%s\n' "$current" "$target" | sort -V | tail -1)
+          if [[ "$target" == "$current" || "$newest" != "$target" ]]; then
+            echo "fr24feed is pinned at $current; the published version is $target. Nothing to do."
+            exit 0
+          fi
+
+          # The same URLs the Dockerfile downloads.
+          curl -fsSL -o "$RUNNER_TEMP/amd64.tgz" "$FEED/linux_binaries/fr24feed_${target}_amd64.tgz"
+          curl -fsSL -o "$RUNNER_TEMP/arm64.tgz" "$FEED/rpi_binaries/fr24feed_${target}_arm64.tgz"
+          sha_amd64=$(sha256sum "$RUNNER_TEMP/amd64.tgz" | cut -d' ' -f1)
+          sha_arm64=$(sha256sum "$RUNNER_TEMP/arm64.tgz" | cut -d' ' -f1)
+
+          sed -i -E \
+            -e "s/^ARG FR24FEED_VERSION=.*/ARG FR24FEED_VERSION=${target}/" \
+            -e "s/^ARG FR24FEED_SHA256_AMD64=.*/ARG FR24FEED_SHA256_AMD64=${sha_amd64}/" \
+            -e "s/^ARG FR24FEED_SHA256_ARM64=.*/ARG FR24FEED_SHA256_ARM64=${sha_arm64}/" \
+            "$DOCKERFILE"
+
+          pr_branch="bump-fr24feed"
+          title="build(fr24): fr24feed ${target}"
+          {
+            echo "Moves \`FR24FEED_VERSION\` from \`${current}\` to \`${target}\` (released ${released}, at least 7 days ago), with the sha256 of both downloads:"
+            echo
+            echo "| Architecture | sha256 |"
+            echo "|---|---|"
+            echo "| amd64 | \`${sha_amd64}\` |"
+            echo "| arm64 | \`${sha_arm64}\` |"
+            echo
+            echo "Changelog: ${FEED}/CHANGELOG.md"
+            echo
+            echo "The smoke test (fr24feed must connect to the hub's raw output) is dispatched on this branch by bump-fr24feed.yml."
+          } > "$RUNNER_TEMP/body.md"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$pr_branch"
+          git commit -q -m "$title" -- "$DOCKERFILE"
+          # The bot owns this branch, so an older unmerged bump is replaced, not stacked.
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${pr_branch}"
+
+          existing=$(gh pr list -R "$REPO" --head "$pr_branch" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" -R "$REPO" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+            echo "Updated PR #$existing"
+          else
+            gh pr create -R "$REPO" --base main --head "$pr_branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+          gh workflow run smoke-test.yml -R "$REPO" --ref "$pr_branch" -f image=fr24
