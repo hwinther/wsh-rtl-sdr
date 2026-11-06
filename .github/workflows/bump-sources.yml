@@ -43,6 +43,18 @@ jobs:
             arg: READSB_REF
             repo: wiedehopf/readsb
             branch: dev
+          - name: tar1090
+            dockerfile: images/tar1090/Dockerfile
+            arg: TAR1090_REF
+            repo: wiedehopf/tar1090
+            branch: master
+          # The aircraft database tar1090 serves; its own PR branch, tested as the tar1090 image.
+          - name: tar1090-db
+            image: tar1090
+            dockerfile: images/tar1090/Dockerfile
+            arg: TAR1090_DB_REF
+            repo: wiedehopf/tar1090-db
+            branch: master
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,6 +65,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NAME: ${{ matrix.name }}
+          # The smoke-test image, when it is not the entry's name (several pins in one Dockerfile).
+          IMAGE: ${{ matrix.image || matrix.name }}
           DOCKERFILE: ${{ matrix.dockerfile }}
           ARG_NAME: ${{ matrix.arg }}
           UPSTREAM: ${{ matrix.repo }}
@@ -111,4 +125,4 @@ jobs:
             gh pr create -R "$REPO" --base main --head "$pr_branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
 
-          gh workflow run smoke-test.yml -R "$REPO" --ref "$pr_branch" -f image="$NAME"
+          gh workflow run smoke-test.yml -R "$REPO" --ref "$pr_branch" -f image="$IMAGE"
