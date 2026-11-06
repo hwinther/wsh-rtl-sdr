@@ -176,7 +176,7 @@ jobs:
     # Run when: non-cron trigger (precheck short-circuits to changed=true), upstream
     # genuinely changed, or precheck failed (defensive — never silently skip).
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
-    uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
+    uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@30b720023773620bec5892d30431d66410c287c0 # v2.19.0
 
   # trixie only: the base for the remaining Debian feeders (piaware, tar1090) and gsm-tools.
   # buster went with opensky's static build; bullseye (dump1090-fa, replaced by readsb) and bookworm
@@ -189,7 +189,7 @@ jobs:
       fail-fast: false
       matrix:
         debian_release: [trixie]
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@30b720023773620bec5892d30431d66410c287c0 # v2.19.0
     with:
       container_image_name_postfix: sdr-base
       build_context: images/sdr-base
@@ -212,7 +212,6 @@ jobs:
       attest_build_provenance_enabled: false
       build_args: |
         DEBIAN_RELEASE=${{ matrix.debian_release }}
-        ${{ matrix.extra_build_args }}
 
   sdr-build:
     # sdr-build now FROM sdr-base, so the full sdr-base matrix must publish before
@@ -224,7 +223,7 @@ jobs:
       fail-fast: false
       matrix:
         debian_release: [trixie]
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@30b720023773620bec5892d30431d66410c287c0 # v2.19.0
     with:
       container_image_name_postfix: sdr-build
       build_context: images/sdr-build
@@ -243,7 +242,6 @@ jobs:
       build_args: |
         DEBIAN_RELEASE=${{ matrix.debian_release }}
         SDR_BASE=ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:${{ matrix.debian_release }}
-        ${{ matrix.extra_build_args }}
 
   # Consumer-side cosign sign + attest for each sdr-base matrix entry. Runs inline in this
   # workflow file, so the OIDC token's job_workflow_ref claim — and therefore the Fulcio
@@ -287,7 +285,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sign and attest (consumer-context OIDC)
-        uses: hwinther/reusable-workflows/.github/actions/sign-image@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
+        uses: hwinther/reusable-workflows/.github/actions/sign-image@30b720023773620bec5892d30431d66410c287c0 # v2.19.0
         with:
           container_registry: ghcr.io
           repository: ${{ steps.repo.outputs.repository }}
@@ -335,7 +333,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sign and attest (consumer-context OIDC)
-        uses: hwinther/reusable-workflows/.github/actions/sign-image@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
+        uses: hwinther/reusable-workflows/.github/actions/sign-image@30b720023773620bec5892d30431d66410c287c0 # v2.19.0
         with:
           container_registry: ghcr.io
           repository: ${{ steps.repo.outputs.repository }}
