@@ -2,7 +2,7 @@
 #
 # opensky: the OpenSky Network feeder (openskyd-dump1090 from openskynetwork/opensky-sensor) built
 # from pinned upstream source as one static (musl) binary on distroless: no shell, no package
-# manager. It reads Beast from dump1090-fa:30005 and feeds OpenSky.
+# manager. It reads Beast from readsb:30005 and feeds OpenSky.
 #
 # Cross-compiled with tonistiigi/xx (clang for the target, musl sysroot from Alpine), so the arm64
 # build runs at native speed on an amd64 runner instead of under QEMU. Only the dump1090 feeder is

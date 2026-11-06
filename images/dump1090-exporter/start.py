@@ -13,7 +13,7 @@ from dump1090exporter.__main__ import main
 
 args = [
     "dump1090exporter",
-    f"--resource-path={os.environ.get('RESOURCE_PATH', '/run/dump1090-fa')}",
+    f"--resource-path={os.environ.get('RESOURCE_PATH', '/run/readsb')}",
     f"--port={os.environ.get('EXPORTER_PORT', '9105')}",
 ]
 for env, flag in (("LAT", "--latitude"), ("LON", "--longitude")):
