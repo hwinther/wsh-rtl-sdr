@@ -291,20 +291,11 @@ services:
     depends_on:
       readsb-probe:
         condition: service_healthy
-    environment:
-      LAT: "59"
-      LON: "10"
-      ALT: "0"
-      OPENSKY_USERNAME: "smoketest"
-      OPENSKY_SERIAL: "0000000000"
-      # RECEIVER_HOST/PORT default to dump1090-fa in the image.
-    # No in-image healthcheck; `compose --wait` needs one to evaluate.
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f openskyd-dump1090 >/dev/null"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 15s
+    # The edge Deployment mounts the same file from its Secret. Dummy username/serial, as before:
+    # openskyd logs in and is refused, but stays up feeding nothing.
+    configs:
+      - source: opensky-conf
+        target: /etc/openskyd/conf.d/10-opensky.conf
     profiles: [opensky]
 
   # --- Interactive image: build + binary-exists check, no daemon ----------
@@ -323,3 +314,22 @@ services:
 
 volumes:
   readsb-json:
+
+configs:
+  opensky-conf:
+    content: |
+      [GPS]
+      Latitude=59.91
+      Longitude=10.75
+      Altitude=0
+
+      [DEVICE]
+      Type=default
+      serial=0000000000
+
+      [IDENT]
+      Username=smoketest
+
+      [INPUT]
+      Host=dump1090-fa
+      Port=30005
