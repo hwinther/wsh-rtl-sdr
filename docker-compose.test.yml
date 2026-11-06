@@ -65,7 +65,7 @@ services:
       readsb-json-init:
         condition: service_completed_successfully
     # Shared hub: present in every consumer profile + its own.
-    profiles: [readsb, piaware, fr24, adsbexchange, opensky, adsb-mqtt, dump1090-exporter]
+    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter]
 
   # The JSON volume starts root-owned; readsb runs as distroless's nonroot (65532).
   readsb-json-init:
@@ -73,7 +73,7 @@ services:
     command: ["chown", "65532:65532", "/run/readsb"]
     volumes:
       - readsb-json:/run/readsb
-    profiles: [readsb, piaware, fr24, adsbexchange, opensky, adsb-mqtt, dump1090-exporter]
+    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter]
 
   # Pass condition for readsb, and what the consumers wait for: the Beast output port answers and
   # readsb has written its JSON (receiver.json, stats.json, aircraft.json, as tar1090 and the
@@ -89,7 +89,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 24
-    profiles: [readsb, piaware, fr24, adsbexchange, opensky, adsb-mqtt, dump1090-exporter]
+    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter]
 
   # --- RF image: AIS receiver, fed an infinite zero IQ stuck-no-dongle ------
   ais-catcher:
@@ -282,29 +282,6 @@ services:
       timeout: 5s
       retries: 24
     profiles: [fr24]
-
-  adsbexchange:
-    build:
-      context: ./images/adsbexchange
-    image: wsh-rtl-sdr-smoketest/adsbexchange
-    networks: [sdrtest]
-    depends_on:
-      readsb-probe:
-        condition: service_healthy
-    environment:
-      ADSBX_UUID: "00000000-0000-0000-0000-000000000000"
-      LAT: "59"
-      LON: "10"
-      # RECEIVER_HOST/MLAT_BEAST_HOST default to dump1090-fa in the image.
-    # No in-image healthcheck; `compose --wait` needs one to evaluate.
-    # adsbexchange-feed.sh execs `readsb` under the hood.
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f adsbexchange-feed >/dev/null || pgrep -x readsb >/dev/null"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 15s
-    profiles: [adsbexchange]
 
   opensky:
     build:
