@@ -28,7 +28,6 @@ $Mode = [ordered]@{
   'tar1090'      = 'wait'
   'piaware'      = 'wait'
   'fr24'         = 'wait'
-  'adsbexchange' = 'wait'
   'opensky'      = 'wait'
   'adsb-mqtt'    = 'wait'
   'dump1090-exporter' = 'wait'

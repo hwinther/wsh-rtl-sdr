@@ -94,7 +94,6 @@ jobs:
           fi
           for wf in \
             build-adsb-mqtt.yml \
-            build-adsbexchange.yml \
             build-ais-catcher.yml \
             build-dump1090-exporter.yml \
             build-readsb.yml \
