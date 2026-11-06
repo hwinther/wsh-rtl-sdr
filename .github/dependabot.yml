@@ -59,3 +59,7 @@ updates:
     python:
       patterns:
       - "*"
+  # dump1090exporter 22.3.0 (unmaintained since 2022) needs aioprometheus 22.3's API: 23.x fails at
+  # import ("from aioprometheus import Gauge"), which the smoke test caught in #71.
+  ignore:
+  - dependency-name: "aioprometheus"
