@@ -1,7 +1,7 @@
 name: Build dump1090-exporter container image
 
-# Prometheus exporter for dump1090-fa reception stats (sidecar reading the shared
-# /run/dump1090-fa emptyDir). Pipeline shape matches build-adsb-mqtt.yml — uses the shared
+# Prometheus exporter for readsb's reception stats (sidecar reading the shared JSON directory).
+# Uses the shared
 # reusable docker-container workflow so the image gets the SLSA provenance the cluster's
 # supply-chain policies require.
 

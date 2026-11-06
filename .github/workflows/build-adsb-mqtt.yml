@@ -1,7 +1,6 @@
 name: Build adsb-mqtt container image
 
-# Publisher image (polls dump1090-fa aircraft.json → MQTT). Pipeline shape matches
-# build-adsbexchange.yml — uses the shared reusable docker-container workflow so the image gets
+# Publisher image (polls readsb's aircraft.json → MQTT). Uses the shared reusable docker-container workflow so the image gets
 # the SLSA provenance the cluster's supply-chain policies require.
 
 on:

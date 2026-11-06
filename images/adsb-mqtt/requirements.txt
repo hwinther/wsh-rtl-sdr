@@ -1,0 +1,2 @@
+# Installed with --no-deps, so this is the whole dependency tree; Dependabot (pip) bumps it.
+paho-mqtt==2.1.0

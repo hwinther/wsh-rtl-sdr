@@ -1,39 +1,28 @@
-# dump1090-exporter: reads dump1090-fa's stats.json / aircraft.json / receiver.json (shared
-# /run/dump1090-fa emptyDir when run as a sidecar) and exposes Prometheus metrics on :9105 —
-# message rate, aircraft counts, max range, signal levels. Persists reception history in
-# Prometheus where the dump1090-fa web UI loses it on pod restart.
+# syntax=docker/dockerfile:1
 #
-# Built on sdr-base (digest-pinned so Dependabot tracks the bump) for supply-chain consistency with
-# the other feeders — it carries the same reusable-workflow attestations, so the cluster's cosign /
-# SLSA policies admit it without a skip. It needs no SDR runtime itself, just python3 + the
-# dump1090exporter package (installed in a venv; trixie's system python is PEP 668 managed).
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:5153edec334357aef8634ad5f9d1c02fca05b204fc71a130c3db5c117896056a AS runtime
+# dump1090-exporter: reads readsb's stats.json / aircraft.json / receiver.json (the shared JSON
+# directory when run as a sidecar) and exposes Prometheus metrics on :9105 — message rate, aircraft
+# counts, max range, signal levels — so reception history survives pod restarts.
+#
+# Distroless python (Debian 13's python3.13, no shell, uid 65532). The dependencies are
+# pip-installed in a trixie builder with the same Python into /opt/deps; aiohttp's C extensions come
+# as prebuilt cp313 wheels, so no compiler. Dependabot bumps the two digests (docker) and
+# requirements.txt (pip); either change rebuilds the image on merge.
+
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS deps
+RUN apt-get update &&     apt-get install -y --no-install-recommends python3-pip &&     rm -rf /var/lib/apt/lists/*
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages --no-deps --target /opt/deps -r /tmp/requirements.txt
+
+FROM gcr.io/distroless/python3-debian13:nonroot@sha256:1c32c3720dc4c7f0c7dbe998737f32c200add6511eca7cec705008be488b87d6
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
-ENV DEBIAN_FRONTEND=noninteractive
-SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
-
-# --no-deps because dump1090exporter 22.3.0 (latest release, upstream unmaintained since 2022)
-# hard-pins aiohttp==3.8.1, whose C extensions predate Python 3.13 and can't even compile against
-# it. Its only real requirements are aiohttp + aioprometheus[aiohttp]==22.3.0 (whose own extra is
-# a loose aiohttp>=3.3.2), so we supply a modern aiohttp with prebuilt cp313 wheels for both
-# amd64 and aarch64 ourselves — no gcc needed. Bump the aiohttp pin manually when rebuilding.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 python3-venv && \
-    python3 -m venv /opt/dump1090exporter && \
-    /opt/dump1090exporter/bin/pip install --no-cache-dir --no-deps dump1090exporter==22.3.0 && \
-    /opt/dump1090exporter/bin/pip install --no-cache-dir "aioprometheus[aiohttp]==22.3.0" aiohttp==3.14.1 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY --chmod=755 start-dump1090-exporter.sh /srv/start-dump1090-exporter.sh
+COPY --from=deps /opt/deps /opt/deps
+COPY start.py /srv/start.py
 
 # Defaults — override via env / k8s ConfigMap + Secret. RESOURCE_PATH may be a filesystem dir
-# (sidecar sharing dump1090-fa's /run emptyDir) or an http URL to a /data endpoint.
+# (sidecar sharing readsb's JSON directory) or an http URL to a /data endpoint.
 # LAT/LON refine range calculations; unset falls back to receiver.json's position.
-ENV RESOURCE_PATH="/run/dump1090-fa" \
-    EXPORTER_PORT="9105" \
-    LAT="" \
-    LON=""
+ENV PYTHONPATH="/opt/deps"     PYTHONDONTWRITEBYTECODE="1"     RESOURCE_PATH="/run/dump1090-fa"     EXPORTER_PORT="9105"     LAT=""     LON=""
 
 EXPOSE 9105
-CMD ["/srv/start-dump1090-exporter.sh"]
+ENTRYPOINT ["/usr/bin/python3", "/srv/start.py"]

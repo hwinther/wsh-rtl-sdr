@@ -21,7 +21,6 @@ updates:
 - package-ecosystem: "docker"
   directories:
   - "/images/adsbexchange"
-  - "/images/dump1090-fa"
   - "/images/fr24"
   - "/images/opensky"
   - "/images/piaware"
@@ -29,6 +28,7 @@ updates:
   - "/images/ais-catcher"
   - "/images/readsb"
   - "/images/adsb-mqtt"
+  - "/images/dump1090-exporter"
   - "/images/sdr-base"
   - "/images/sdr-build"
   - "/images/gsm-tools"
@@ -43,3 +43,19 @@ updates:
       patterns:
       - "*sdr-base"
       - "*sdr-build"
+
+# The distroless python images pin their whole dependency tree in requirements.txt (installed with
+# --no-deps). Grouped per directory, so aiohttp and its helpers arrive as one PR.
+- package-ecosystem: "pip"
+  directories:
+  - "/images/adsb-mqtt"
+  - "/images/dump1090-exporter"
+  schedule:
+    interval: "weekly"
+    day: "monday"
+  cooldown:
+    default-days: 7
+  groups:
+    python:
+      patterns:
+      - "*"

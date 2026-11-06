@@ -13,6 +13,8 @@
 #   - dump1090-fa (replaced by readsb in the cluster) is no longer tested here.
 #   - ais-catcher reads an infinite zero IQ stream (/dev/zero) instead of an
 #     RTL-SDR; its web server still comes up, which ais-catcher-probe checks.
+#   - dump1090-exporter and adsb-mqtt read the hub's JSON directory; adsb-mqtt publishes to a
+#     throwaway mosquitto.
 #   - gsm-tools is build-only: assert key SDR binaries resolve on PATH.
 #
 # Each service is gated behind a profile equal to its image name. readsb
@@ -63,7 +65,7 @@ services:
       readsb-json-init:
         condition: service_completed_successfully
     # Shared hub: present in every consumer profile + its own.
-    profiles: [readsb, piaware, fr24, adsbexchange, opensky]
+    profiles: [readsb, piaware, fr24, adsbexchange, opensky, adsb-mqtt, dump1090-exporter]
 
   # The JSON volume starts root-owned; readsb runs as distroless's nonroot (65532).
   readsb-json-init:
@@ -71,7 +73,7 @@ services:
     command: ["chown", "65532:65532", "/run/readsb"]
     volumes:
       - readsb-json:/run/readsb
-    profiles: [readsb, piaware, fr24, adsbexchange, opensky]
+    profiles: [readsb, piaware, fr24, adsbexchange, opensky, adsb-mqtt, dump1090-exporter]
 
   # Pass condition for readsb, and what the consumers wait for: the Beast output port answers and
   # readsb has written its JSON (receiver.json, stats.json, aircraft.json, as tar1090 and the
@@ -87,7 +89,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 24
-    profiles: [readsb, piaware, fr24, adsbexchange, opensky]
+    profiles: [readsb, piaware, fr24, adsbexchange, opensky, adsb-mqtt, dump1090-exporter]
 
   # --- RF image: AIS receiver, fed an infinite zero IQ stuck-no-dongle ------
   ais-catcher:
@@ -156,6 +158,70 @@ services:
       timeout: 5s
       retries: 24
     profiles: [ais-catcher]
+
+  # --- JSON readers: distroless python, read readsb's JSON directory --------
+  # dump1090-exporter as the cluster runs it (a sidecar reading the shared directory). Pass
+  # condition (exporter-probe): /metrics serves the stats readsb wrote.
+  dump1090-exporter:
+    build:
+      context: ./images/dump1090-exporter
+    image: wsh-rtl-sdr-smoketest/dump1090-exporter
+    networks: [sdrtest]
+    environment:
+      RESOURCE_PATH: /run/readsb
+    volumes:
+      - readsb-json:/run/readsb:ro
+    depends_on:
+      readsb-probe:
+        condition: service_healthy
+    profiles: [dump1090-exporter]
+
+  exporter-probe:
+    image: curlimages/curl:8.17.0
+    networks: [sdrtest]
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://dump1090-exporter:9105/metrics | grep -q '^dump1090_messages_total'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    profiles: [dump1090-exporter]
+
+  # adsb-mqtt publishing aircraft.json to a throwaway broker. Pass condition (adsb-mqtt-probe): one
+  # message arrives on the topic.
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    networks: [sdrtest]
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    profiles: [adsb-mqtt]
+
+  adsb-mqtt:
+    build:
+      context: ./images/adsb-mqtt
+    image: wsh-rtl-sdr-smoketest/adsb-mqtt
+    networks: [sdrtest]
+    environment:
+      MQTT_HOST: mosquitto
+      PUBLISH_UNCHANGED: "true"
+    volumes:
+      - readsb-json:/data:ro
+    depends_on:
+      readsb-probe:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    profiles: [adsb-mqtt]
+
+  adsb-mqtt-probe:
+    image: eclipse-mosquitto:2.0.22
+    networks: [sdrtest]
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h mosquitto -t adsb/aircraft -C 1 -W 4 | grep -q '\"now\"'"]
+      interval: 5s
+      timeout: 6s
+      retries: 24
+    profiles: [adsb-mqtt]
 
   # --- Web UI only: nginx, no hub required ---------------------------------
   tar1090:

@@ -127,7 +127,7 @@ jobs:
               echo "| Distro | Upstream digest | Last-built parent digest | Decision |"
               echo "|---|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for d in buster bullseye bookworm trixie; do
+          for d in buster trixie; do
               upstream=$(crane digest "debian:${d}-slim")
               last=""
               if manifest_json=$(crane manifest "ghcr.io/${repo_lc}/sdr-base:${d}" 2>/dev/null); then
@@ -178,12 +178,16 @@ jobs:
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
     uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
 
+  # trixie is the base for every feeder. buster stays only for opensky (archived Debian, apt
+  # sources rewritten to archive.debian.org) until it moves to trixie. bullseye (dump1090-fa,
+  # replaced by readsb) and bookworm (no consumer) were dropped: bullseye's apt sources stopped
+  # resolving, which failed the build and, through `needs`, skipped sdr-build and every sign job.
   sdr-base:
     needs: version
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, bullseye, bookworm, trixie]
+        debian_release: [buster, trixie]
         # buster needs apt sources rewritten to archive.debian.org; other distros
         # don't need any extra build args (the empty default applies).
         include:
@@ -224,7 +228,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, bullseye, bookworm, trixie]
+        debian_release: [buster, trixie]
         # buster: skip python3-build (not packaged on buster). USE_ARCHIVE_REPOS
         # is handled by sdr-base; sdr-build inherits the already-rewritten sources.
         include:
@@ -267,11 +271,13 @@ jobs:
     # precheck included so the if: gate below can read needs.precheck.* (it was missing
     # before — the gate silently evaluated false, so this sign job never actually ran).
     needs: [precheck, version, sdr-base]
-    if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
+    # Only after a successful build: otherwise the SBOM/Grype artifacts are missing and every
+    # matrix entry fails with "Artifact not found".
+    if: ${{ !cancelled() && needs.sdr-base.result == 'success' && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, bullseye, bookworm, trixie]
+        debian_release: [buster, trixie]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -314,11 +320,12 @@ jobs:
   sdr-build-sign:
     # precheck included so the if: gate can read needs.precheck.* (was missing before).
     needs: [precheck, version, sdr-build]
-    if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
+    # Only after a successful build (see sdr-base-sign).
+    if: ${{ !cancelled() && needs.sdr-build.result == 'success' && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, bullseye, bookworm, trixie]
+        debian_release: [buster, trixie]
     runs-on: ubuntu-latest
     permissions:
       contents: read
