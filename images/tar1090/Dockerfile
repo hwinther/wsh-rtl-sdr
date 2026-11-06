@@ -1,47 +1,51 @@
-# Digest-pinned so Dependabot tracks sdr-base updates. Runtime-only feeder.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-base:trixie@sha256:334cec36506c841f4ce36c4dc52ee4b26eed8a6f8dd43f7f29074f551f968f7b AS runtime
+# syntax=docker/dockerfile:1
+#
+# tar1090: wiedehopf's ADS-B map web UI as static files, served by a small standard-library Go server
+# (server/main.go) on distroless: no shell, uid 65532, port 8080. Tracks come from readsb itself,
+# which runs with --write-json-globe-index (traces + globe files in its JSON directory), so
+# tar1090.sh's bash history-chunk loop is not needed; the server reproduces tar1090's nginx.conf
+# headers. (Caddy would do, but even its newest release carries fixable Go module findings.)
+#
+# The html stage does what tar1090's install.sh does to the html directory: add the aircraft database
+# (tar1090-db) as db-<version>, write version.json, and cache-bust the js/css names. Per-deployment
+# files are mounted at runtime, not baked in: config.js (e.g. aiscatcher_server; defaults.js has
+# every default, so it only needs the overrides) and upintheair.json (HeyWhatsThat range rings).
+# readsb's JSON directory is mounted read-only at /run/readsb and served under /data/.
+#
+# Updates: Dependabot bumps the golang, alpine and distroless digests. TAR1090_REF and TAR1090_DB_REF
+# are manual bumps (wiedehopf/tar1090 and wiedehopf/tar1090-db master).
 
-FROM runtime AS install-dump1090-fa
-COPY tar1090-build-data /run/dump1090-fa
-# apt-get update is required here: the parent layer cleaned /var/lib/apt/lists,
-# and without a refresh apt resolves to whatever stale binNMU version was
-# pinned in the base image, which Debian routinely supersedes (last seen:
-# libpam-cap_2.66-4+deb12u2+b2 -> 404 once +b3 shipped).
-RUN apt-get update && \
-    apt-get -y install nginx && \
-    bash -c "$(wget -nv -O - https://github.com/wiedehopf/tar1090/raw/master/install.sh)" && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ARG TAR1090_REF=5d59b1ba2c5e30eb23f1161940367b7767f10ad5
+ARG TAR1090_DB_REF=2ab834a65f2fbde9457823e88682cd46954b8bc1
 
-FROM install-dump1090-fa AS final
-RUN /bin/echo -e "server {\n    listen 80 default_server;\n" > /etc/nginx/sites-enabled/default && \
-    cat /usr/local/share/tar1090/nginx-tar1090.conf >> /etc/nginx/sites-enabled/default && \
-    /bin/echo -e "\n\n}\n" >> /etc/nginx/sites-enabled/default && \
-    mkdir -p /run/tar1090
-COPY --chmod=755 start-tar1090.sh /srv/start-tar1090.sh
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.24@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS server
+ARG TARGETOS
+ARG TARGETARCH
+COPY server/main.go /src/main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /out/tar1090-server /src/main.go
 
-#region nginx
-COPY <<EOF /etc/s6-overlay/s6-rc.d/nginx/type
-longrun
-EOF
-COPY --chmod=700 <<EOF /etc/s6-overlay/s6-rc.d/nginx/run
-#!/command/execlineb -P
-nginx -g "daemon off;"
-EOF
-RUN touch /etc/s6-overlay/s6-rc.d/user/contents.d/nginx
-#endregion nginx
+FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS html
+RUN apk add --no-cache bash coreutils sed
+ARG TAR1090_REF
+ARG TAR1090_DB_REF
+ADD https://github.com/wiedehopf/tar1090.git#${TAR1090_REF} /src/tar1090
+ADD https://github.com/wiedehopf/tar1090-db.git#${TAR1090_DB_REF} /src/tar1090-db
+RUN set -eu; \
+    out=/out/html; \
+    tar_version="$(cat /src/tar1090/version)"; \
+    db_version="$(cat /src/tar1090-db/version)"; \
+    mkdir -p "$out"; \
+    cp -r -T /src/tar1090/html "$out"; \
+    cp -r -T /src/tar1090-db/db "$out/db-$db_version"; \
+    sed -i -e "s/let databaseFolder = .*;/let databaseFolder = \"db-$db_version\";/" "$out/index.html"; \
+    echo "{ \"tar1090Version\": \"$tar_version\", \"databaseVersion\": \"$db_version\" }" > "$out/version.json"; \
+    cd "$out"; \
+    sed -i -e 's/id="webinterface_version">/\0'"($tar_version)/" index.html; \
+    bash /src/tar1090/cachebust.sh /src/tar1090/cachebust.list "$out"
 
-ENV HISTORY_SIZE=450
-ENV INTERVAL=8
-ENV CHUNK_SIZE=60
-ENV PTRACKS=8
-ENV GZIP_LVL=1
-ENV ENABLE_978=no
-ENV URL_978=""
-
-# Nginx http port
-EXPOSE 80
-
-HEALTHCHECK --start-period=5s --interval=30s --timeout=5s --retries=3 CMD ["bash", "-c", "cat < /dev/null > /dev/tcp/localhost/80"]
-ENTRYPOINT [ "/init" ]
-CMD [ "/srv/start-tar1090.sh" ]
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
+LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
+COPY --from=server /out/tar1090-server /usr/bin/tar1090-server
+COPY --from=html /out/html /usr/share/tar1090/html
+EXPOSE 8080
+ENTRYPOINT ["/usr/bin/tar1090-server"]

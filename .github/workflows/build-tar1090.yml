@@ -1,8 +1,8 @@
 name: Build tar1090 container image
 
-# Feeder image (consumes sdr-base:trixie, runtime-only).
+# Web UI: tar1090 static files + a small Go file server on distroless (see images/tar1090/Dockerfile).
 # Rebuilt when tag-and-release.yml dispatches it for a v* tag, on workflow_dispatch, and on merges
-# that touch images/tar1090/ (Dependabot's sdr-base/sdr-build digest bumps).
+# that touch images/tar1090/ (Dependabot's digest bumps, tar1090/tar1090-db ref bumps).
 
 on:
   workflow_dispatch:

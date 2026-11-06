@@ -52,6 +52,8 @@ services:
       - "30005"
       - --write-json
       - /run/readsb
+      # As on the edge: tar1090 reads tracks from readsb's traces and globe files.
+      - --write-json-globe-index
       - --json-location-accuracy
       - "1"
       - --lat
@@ -65,7 +67,7 @@ services:
       readsb-json-init:
         condition: service_completed_successfully
     # Shared hub: present in every consumer profile + its own.
-    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter]
+    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter, tar1090]
 
   # The JSON volume starts root-owned; readsb runs as distroless's nonroot (65532).
   readsb-json-init:
@@ -73,7 +75,7 @@ services:
     command: ["chown", "65532:65532", "/run/readsb"]
     volumes:
       - readsb-json:/run/readsb
-    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter]
+    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter, tar1090]
 
   # Pass condition for readsb, and what the consumers wait for: the Beast output port answers and
   # readsb has written its JSON (receiver.json, stats.json, aircraft.json, as tar1090 and the
@@ -89,7 +91,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 24
-    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter]
+    profiles: [readsb, piaware, fr24, opensky, adsb-mqtt, dump1090-exporter, tar1090]
 
   # --- RF image: AIS receiver, fed an infinite zero IQ stuck-no-dongle ------
   ais-catcher:
@@ -223,13 +225,39 @@ services:
       retries: 24
     profiles: [adsb-mqtt]
 
-  # --- Web UI only: nginx, no hub required ---------------------------------
+  # --- Web UI: static tar1090 (Go file server), serving the hub's JSON directory
   tar1090:
     build:
       context: ./images/tar1090
     image: wsh-rtl-sdr-smoketest/tar1090
     networks: [sdrtest]
-    # In-image HEALTHCHECK (TCP 80) is the pass condition.
+    volumes:
+      - readsb-json:/run/readsb:ro
+    depends_on:
+      readsb-probe:
+        condition: service_healthy
+    profiles: [tar1090]
+
+  # Pass condition for tar1090 (distroless, no shell): the UI is served with the aircraft database
+  # wired in, receiver.json comes through /data with the globe index on, and a globe file readsb
+  # wrote (gzip without a .gz suffix) is served with Content-Encoding: gzip.
+  tar1090-probe:
+    image: curlimages/curl:8.17.0
+    networks: [sdrtest]
+    command: ["sleep", "infinity"]
+    volumes:
+      - readsb-json:/run/readsb:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://tar1090:8080/ | grep -q 'databaseFolder = "db-' &&
+          curl -fsS http://tar1090:8080/data/receiver.json | grep -q globeIndexGrid &&
+          g=$$(ls /run/readsb | grep -m1 '^globe_[0-9]*\.json$$') &&
+          curl -fsSI "http://tar1090:8080/data/$$g" | grep -qi '^content-encoding: gzip'
+      interval: 5s
+      timeout: 10s
+      retries: 24
     profiles: [tar1090]
 
   # --- Network consumers: need a healthy readsb hub ------------------------
