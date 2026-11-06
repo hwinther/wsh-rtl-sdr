@@ -1,22 +1,57 @@
 # syntax=docker/dockerfile:1
 #
-# gsm-tools: GSM/SDR analysis tooling on top of the shared sdr-build base.
+# gsm-tools: GSM/SDR analysis tooling, a developer tool (not deployed).
 # Built layers: rtl-sdr + kalibrate-rtl + gr-gsm + LTE-Cell-Scanner + gr-iridium +
 # pyshark + zellij + a tmux gsm-monitor script.
 #
-# Inherits from sdr-build/Dockerfile via SDR_BUILD, which provides debian-trixie +
-# apt-upgrade + /srv/target.* + runtime tools + s6-overlay + the standard SDR build
-# toolchain (autoconf/cmake/debhelper/boost/libhackrf-dev/librtlsdr-dev/python3-*).
+# On plain debian:trixie-slim with the SDR build toolchain (autoconf/cmake/debhelper/boost/
+# libhackrf-dev/librtlsdr-dev/python3-*) installed here; this was the last user of the old
+# sdr-base/sdr-build images. amd64 only: gnuradio, gr-gsm and gr-iridium took hours under QEMU.
 #
 # This image is monolithic — build deps remain in the final layer because it's used
 # as an interactive container (`docker exec` into it), not a discardable build stage.
 #
-# Digest-pinned so Dependabot's docker ecosystem tracks sdr-build updates.
-# The tag (`:trixie`) tells Dependabot which channel to follow; the digest is the actual
-# pin Docker resolves at build time. Dependabot opens PRs when the tag's digest advances.
-FROM ghcr.io/hwinther/wsh-rtl-sdr/sdr-build:trixie@sha256:b6a3cb25482e9b1f54d64885e9ac6543069a9cdcb77186a8b0dde3b64d9214ce AS base
+# Digest-pinned so Dependabot's docker ecosystem tracks debian updates.
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS base
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
+ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-x", "-o", "pipefail", "-c"]
+RUN apt-get update && \
+    apt-get -y full-upgrade && \
+    apt-get -y install --no-install-recommends \
+    autoconf \
+    automake \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    debhelper \
+    devscripts \
+    fakeroot \
+    git \
+    libbladerf-dev \
+    libboost-filesystem-dev \
+    libboost-program-options-dev \
+    libboost-regex-dev \
+    libboost-system-dev \
+    libhackrf-dev \
+    liblimesuite-dev \
+    libncurses-dev \
+    librtlsdr-dev \
+    libusb-1.0-0-dev \
+    nano \
+    net-tools \
+    pkg-config \
+    procps \
+    python3-dev \
+    python3-pip \
+    python3-setuptools \
+    python3-venv \
+    python3-wheel \
+    wget \
+    xz-utils \
+    zlib1g-dev && \
+    apt-get clean
 
 FROM base AS build-rtl-sdr
 WORKDIR /src

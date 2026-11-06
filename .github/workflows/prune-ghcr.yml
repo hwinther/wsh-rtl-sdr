@@ -20,8 +20,8 @@ on:
         type: string
         default: ""
   schedule:
-    # Sunday 04:00 UTC — runs outside the working week and before Monday's
-    # base-image cron (build-sdr-images.yml runs at 06:00 UTC Monday).
+    # Sunday 04:00 UTC — runs outside the working week, before Monday's
+    # bump-sources.yml run.
     - cron: "0 4 * * 0"
 
 permissions:
@@ -36,9 +36,10 @@ jobs:
       # workflow_dispatch supplies inputs.dry_run; cron leaves it null and the
       # || false fallback makes scheduled runs actually prune.
       dry_run: ${{ inputs.dry_run || false }}
-      # Filter discovery to GHCR packages under this repo. Currently:
-      # sdr-base, sdr-build, gsm-tools + the feeders (adsbexchange, ais-catcher,
-      # dump1090-fa, fr24, opensky, piaware, readsb, tar1090) — all under wsh-rtl-sdr/.
+      # Filter discovery to GHCR packages under this repo: the images (ais-catcher, readsb,
+      # fr24, opensky, piaware, tar1090, adsb-mqtt, dump1090-exporter, gsm-tools) and the
+      # retired ones still holding versions (sdr-base, sdr-build, dump1090-fa, adsbexchange),
+      # all under wsh-rtl-sdr/.
       package_namespace_prefix: wsh-rtl-sdr/
       # When set on a manual run, bypasses the smart prune and deletes the
       # entire named package via the GHCR package DELETE API. Cron runs leave

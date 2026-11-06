@@ -1,26 +1,18 @@
 name: Build gsm-tools container image
 
-# Dispatched by tag-and-release.yml after a v* tag is created (push from GITHUB_TOKEN does
-# not fire on.push.tags), and runnable manually for ad-hoc rebuilds. gsm-tools is FROM
-# sdr-build:trixie (digest-pinned in images/gsm-tools/Dockerfile so Dependabot tracks
-# base-image updates). The parent sdr-build:trixie rebuilds on its own cadence in
-# build-sdr-images.yml (path changes + weekly cron + manual).
+# Developer tool (GSM/LTE/Iridium analysis), amd64 only, on debian:trixie-slim (digest-pinned in
+# images/gsm-tools/Dockerfile so Dependabot tracks it). Not dispatched by tag-and-release.yml;
+# rebuilt on merges that touch images/gsm-tools/ and runnable manually.
 #
-# Pipeline (via the reusable docker-container.yml): gitversion → buildx (multi-arch) → SBOM
-# → Grype → push → cosign keyless sign → CycloneDX/vuln attestations → SLSA provenance.
+# Pipeline (via the reusable docker-container.yml): gitversion → buildx → SBOM → Grype → push →
+# cosign keyless sign → CycloneDX/vuln attestations → SLSA provenance.
 
 on:
   workflow_dispatch:
-    inputs:
-      grype_fail_build:
-        description: "Fail the build if Grype finds vulnerabilities"
-        type: boolean
-        default: true
-  # Disable push to main for now to avoid triggering a rebuild of the sdr-build:trixie image - it takes too long
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "images/gsm-tools/**"
+  push:
+    branches: [main]
+    paths:
+      - "images/gsm-tools/**"
 
 permissions:
   contents: read
@@ -42,5 +34,10 @@ jobs:
       container_image_name_postfix: gsm-tools
       build_context: images/gsm-tools
       dockerfile: images/gsm-tools/Dockerfile
-      platforms: linux/amd64,linux/arm64
-      grype_fail_build: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.grype_fail_build == 'false' && 'never' || 'auto' }}
+      # amd64 only: a developer tool run on a workstation, and gnuradio + gr-gsm + gr-iridium
+      # under QEMU for arm64 took over two hours.
+      platforms: linux/amd64
+      # Report, don't gate: a never-deployed developer tool whose fixable findings sit in Debian's
+      # own packages (termshark's Go stdlib, python3-mako/-wheel/-jaraco from gnuradio's
+      # dependencies), which only a Debian update can fix. Findings still go to code scanning.
+      grype_fail_build: never

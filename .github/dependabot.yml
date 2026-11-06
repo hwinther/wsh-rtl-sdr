@@ -28,20 +28,23 @@ updates:
   - "/images/readsb"
   - "/images/adsb-mqtt"
   - "/images/dump1090-exporter"
-  - "/images/sdr-base"
-  - "/images/sdr-build"
   - "/images/gsm-tools"
   schedule:
     interval: "daily"
+  cooldown:
+    default-days: 7
   open-pull-requests-limit: 20
   groups:
-    # The sdr-base / sdr-build digests are pinned in every feeder's
-    # Dockerfile, so one base-image rebuild otherwise opens a separate PR
-    # per directory. Group them into a single PR across all directories.
-    sdr-base-images:
+    # The same base digests are pinned in most Dockerfiles here (debian:trixie-slim, alpine,
+    # tonistiigi/xx, golang, distroless), so one upstream push would otherwise open a PR per
+    # directory. Group them into a single PR across all directories.
+    base-images:
       patterns:
-      - "*sdr-base"
-      - "*sdr-build"
+      - "debian"
+      - "alpine"
+      - "tonistiigi/xx"
+      - "golang"
+      - "gcr.io/distroless/*"
 
 # The distroless python images pin their whole dependency tree in requirements.txt (installed with
 # --no-deps). Grouped per directory, so aiohttp and its helpers arrive as one PR.
