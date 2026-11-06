@@ -258,21 +258,29 @@ services:
     depends_on:
       readsb-probe:
         condition: service_healthy
-    environment:
-      # Dummy key: fr24feed stays up retrying even when the key is rejected.
-      FR24_KEY: "0000000000000000"
-      # RECEIVER_TYPE/HOST/PORT default to avr-tcp/dump1090-fa/30002.
-    # The image's HEALTHCHECK greps `fr24feed-status` for "FR24 Link:
-    # connected" -- requires a valid FR24 key + reachable upstream, wrong
-    # criterion for an offline smoke. Replace with a process-alive check.
-    # (`compose --wait` requires *some* healthcheck; `disable: true` would
-    # break it.)
+    # The edge Deployment's flags, with a dummy key: fr24feed stays up retrying when the key is
+    # rejected. Distroless, so fr24-probe carries the health check.
+    command:
+      - --fr24key=0000000000000000
+      - --receiver=avr-tcp
+      - --host=dump1090-fa:30002
+      - --bs=no
+      - --raw=no
+      - --mlat=no
+      - --mlat-without-gps=no
+    profiles: [fr24]
+
+  # Pass condition for fr24: its status page says it is connected to the hub's raw output (it would
+  # hang before the reader starts if the /bin/bash stub were missing).
+  fr24-probe:
+    image: curlimages/curl:8.17.0
+    networks: [sdrtest]
+    command: ["sleep", "infinity"]
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -x fr24feed >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://fr24:8754/monitor.json | grep -q '\"rx_connected\":\"1\"'"]
       interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 15s
+      timeout: 5s
+      retries: 24
     profiles: [fr24]
 
   adsbexchange:

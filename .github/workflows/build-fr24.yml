@@ -1,8 +1,8 @@
 name: Build fr24 container image
 
-# Feeder image (consumes sdr-base:trixie, runtime-only).
+# Feeder image: Flightradar24's static fr24feed on distroless (see images/fr24/Dockerfile).
 # Rebuilt when tag-and-release.yml dispatches it for a v* tag, on workflow_dispatch, and on merges
-# that touch images/fr24/ (Dependabot's sdr-base/sdr-build digest bumps).
+# that touch images/fr24/ (Dependabot's digest bumps, fr24feed version bumps).
 
 on:
   workflow_dispatch:
