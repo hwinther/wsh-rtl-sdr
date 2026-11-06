@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Publish dump1090-fa's aircraft.json to MQTT.
+"""Publish readsb's aircraft.json to MQTT.
 
-dump1090-fa has no native MQTT output; it writes a decoded aircraft snapshot (aircraft.json,
+readsb has no native MQTT output; it writes a decoded aircraft snapshot (aircraft.json,
 ~1 Hz) to a directory shared with tar1090. This polls that file and republishes the raw bytes to
 a single MQTT topic so downstream apps get the whole-picture-every-second feed.
 
@@ -70,7 +70,7 @@ def main():
                 last = data
         except FileNotFoundError:
             if not missing_logged:
-                print(f"{path} not found yet (waiting for dump1090-fa)", flush=True)
+                print(f"{path} not found yet (waiting for readsb)", flush=True)
                 missing_logged = True
         except Exception as exc:  # keep the loop alive on transient read/publish errors
             print(f"adsb-mqtt: error: {exc}", flush=True)

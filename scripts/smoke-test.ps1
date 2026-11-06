@@ -30,6 +30,8 @@ $Mode = [ordered]@{
   'fr24'         = 'wait'
   'adsbexchange' = 'wait'
   'opensky'      = 'wait'
+  'adsb-mqtt'    = 'wait'
+  'dump1090-exporter' = 'wait'
   'gsm-tools'    = 'runonce'
 }
 

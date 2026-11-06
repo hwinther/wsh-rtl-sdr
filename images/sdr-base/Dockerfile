@@ -6,9 +6,10 @@
 # Build:   docker build --build-arg DEBIAN_RELEASE=trixie .
 # Buster:  add --build-arg USE_ARCHIVE_REPOS=true (buster has been moved to archive.debian.org).
 #
-# Consumed by downstream feeder images (dump1090-fa, piaware, tar1090, AIS-catcher, …) and
-# by sdr-build/Dockerfile (full build toolchain). Long-term plan is to standardize on the
-# newest Debian; the buster/bullseye/bookworm matrix entries exist for in-flight consumers.
+# Consumed by the Debian-based feeder images (piaware, fr24, tar1090, adsbexchange, opensky) and
+# by sdr-build/Dockerfile (full build toolchain). The decoders (readsb, AIS-catcher) and the Python
+# tools are static or distroless and do not use it. trixie is the standard; buster remains only
+# for opensky until it moves.
 
 ARG DEBIAN_RELEASE=trixie
 

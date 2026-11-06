@@ -1,0 +1,15 @@
+# Installed with --no-deps, so this is the whole dependency tree; Dependabot (pip) bumps it.
+# dump1090exporter 22.3.0 (upstream unmaintained since 2022) hard-pins aiohttp==3.8.1, which cannot
+# build on Python 3.13; its real needs are aiohttp + aioprometheus[aiohttp], pinned here instead.
+dump1090exporter==22.3.0
+aioprometheus==22.3.0
+quantile-python==1.1
+aiohttp==3.14.5
+aiohappyeyeballs==2.7.1
+aiosignal==1.4.0
+attrs==26.1.0
+frozenlist==1.8.0
+idna==3.20
+multidict==7.2.1
+propcache==0.5.4
+yarl==1.25.1

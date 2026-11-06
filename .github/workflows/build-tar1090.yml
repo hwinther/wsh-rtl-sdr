@@ -1,7 +1,8 @@
 name: Build tar1090 container image
 
-# Feeder image (consumes sdr-base:bookworm, runtime-only). Triggers + pipeline shape match
-# build-dump1090-fa.yml — see that file for the full Option 2 rationale.
+# Feeder image (consumes sdr-base:trixie, runtime-only).
+# Rebuilt when tag-and-release.yml dispatches it for a v* tag, on workflow_dispatch, and on merges
+# that touch images/tar1090/ (Dependabot's sdr-base/sdr-build digest bumps).
 
 on:
   workflow_dispatch:

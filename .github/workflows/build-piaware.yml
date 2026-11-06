@@ -1,7 +1,8 @@
 name: Build piaware container image
 
-# Feeder image (consumes sdr-base/sdr-build:bookworm). Triggers + pipeline shape match
-# build-dump1090-fa.yml — see that file for the full Option 2 trigger rationale.
+# Feeder image (consumes sdr-base/sdr-build:trixie).
+# Rebuilt when tag-and-release.yml dispatches it for a v* tag, on workflow_dispatch, and on merges
+# that touch images/piaware/ (Dependabot's sdr-base/sdr-build digest bumps).
 
 on:
   workflow_dispatch:
