@@ -1,9 +1,10 @@
 name: Bump upstream sources
 
-# The images built from upstream source pin it by commit in a Dockerfile ARG, which Dependabot
-# cannot track. Once a week this moves each pin to the newest upstream commit that is at least 7
-# days old (the same cooldown as Dependabot) and opens or updates a PR. The merge touches the
-# image's directory, so its build workflow rebuilds it.
+# The images built from upstream source pin it in a Dockerfile ARG, which Dependabot cannot track:
+# by commit (default) or, with `mode: tag`, by release tag. Once a week this moves each pin to the
+# newest upstream commit or semver tag that is at least 7 days old (the same cooldown as
+# Dependabot) and opens or updates a PR. The merge touches the image's directory, so its build
+# workflow rebuilds it.
 #
 # A PR opened with GITHUB_TOKEN starts no pull_request workflows, so the smoke test is dispatched
 # on the PR branch explicitly; its checks land on the PR's head commit. Needs "Allow GitHub Actions
@@ -55,6 +56,12 @@ jobs:
             arg: TAR1090_DB_REF
             repo: wiedehopf/tar1090-db
             branch: master
+          # piaware_builder is released by tag (vX.Y); its tag pins piaware, faup1090 and mlat-client.
+          - name: piaware
+            mode: tag
+            dockerfile: images/piaware/Dockerfile
+            arg: PIAWARE_VERSION
+            repo: flightaware/piaware_builder
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -71,34 +78,66 @@ jobs:
           ARG_NAME: ${{ matrix.arg }}
           UPSTREAM: ${{ matrix.repo }}
           UPSTREAM_BRANCH: ${{ matrix.branch }}
+          MODE: ${{ matrix.mode || 'commit' }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          current=$(sed -nE "s/^ARG ${ARG_NAME}=([0-9a-f]{40})$/\1/p" "$DOCKERFILE")
-          [[ -n "$current" ]] || { echo "::error::No 'ARG ${ARG_NAME}=<sha>' in $DOCKERFILE"; exit 1; }
+          if [[ "$MODE" == tag ]]; then
+            current=$(sed -nE "s/^ARG ${ARG_NAME}=(v?[0-9]+(\.[0-9]+)*)$/\1/p" "$DOCKERFILE")
+            [[ -n "$current" ]] || { echo "::error::No 'ARG ${ARG_NAME}=<semver tag>' in $DOCKERFILE"; exit 1; }
 
-          until=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          target=$(gh api "repos/${UPSTREAM}/commits?sha=${UPSTREAM_BRANCH}&until=${until}&per_page=1" --jq '.[0].sha')
-          [[ "$target" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::No upstream commit before $until"; exit 1; }
+            # The newest semver tag whose commit is at least 7 days old.
+            cutoff=$(date -u -d '7 days ago' +%s)
+            target=""
+            while read -r tag; do
+              committed=$(gh api "repos/${UPSTREAM}/commits/${tag}" --jq '.commit.committer.date')
+              if (( $(date -u -d "$committed" +%s) <= cutoff )); then
+                target=$tag
+                break
+              fi
+            done < <(gh api "repos/${UPSTREAM}/tags?per_page=100" --jq '.[].name' \
+                       | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V -r)
+            [[ -n "$target" ]] || { echo "::error::No ${UPSTREAM} tag older than 7 days"; exit 1; }
 
-          if [[ "$target" == "$current" ]]; then
-            echo "$NAME is at ${current:0:7}, the newest ${UPSTREAM_BRANCH} commit older than 7 days."
-            exit 0
+            # Never move backwards (a pin bumped by hand to a newer tag).
+            newest=$(printf '%s\n%s\n' "$current" "$target" | sort -V | tail -1)
+            if [[ "$target" == "$current" || "$newest" != "$target" ]]; then
+              echo "$NAME is at $current; the newest tag older than 7 days is $target. Nothing to do."
+              exit 0
+            fi
+
+            sed -i -E "s/^ARG ${ARG_NAME}=.*/ARG ${ARG_NAME}=${target}/" "$DOCKERFILE"
+            label=$target
+            what="newest semver tag of \`${UPSTREAM}\` that is at least 7 days old"
+          else
+            current=$(sed -nE "s/^ARG ${ARG_NAME}=([0-9a-f]{40})$/\1/p" "$DOCKERFILE")
+            [[ -n "$current" ]] || { echo "::error::No 'ARG ${ARG_NAME}=<sha>' in $DOCKERFILE"; exit 1; }
+
+            until=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+            target=$(gh api "repos/${UPSTREAM}/commits?sha=${UPSTREAM_BRANCH}&until=${until}&per_page=1" --jq '.[0].sha')
+            [[ "$target" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::No upstream commit before $until"; exit 1; }
+
+            if [[ "$target" == "$current" ]]; then
+              echo "$NAME is at ${current:0:7}, the newest ${UPSTREAM_BRANCH} commit older than 7 days."
+              exit 0
+            fi
+            # Never move backwards (a pin bumped by hand to a newer commit).
+            status=$(gh api "repos/${UPSTREAM}/compare/${current}...${target}" --jq '.status')
+            if [[ "$status" != "ahead" ]]; then
+              echo "$NAME: ${target:0:7} is not ahead of the pin ${current:0:7} (status: $status); nothing to do."
+              exit 0
+            fi
+
+            sed -i -E "s/^ARG ${ARG_NAME}=[0-9a-f]{40}$/ARG ${ARG_NAME}=${target}/" "$DOCKERFILE"
+            label="${UPSTREAM_BRANCH} at ${target:0:7}"
+            what="newest \`${UPSTREAM_BRANCH}\` commit that is at least 7 days old"
           fi
-          # Never move backwards (a pin bumped by hand to a newer commit).
-          status=$(gh api "repos/${UPSTREAM}/compare/${current}...${target}" --jq '.status')
-          if [[ "$status" != "ahead" ]]; then
-            echo "$NAME: ${target:0:7} is not ahead of the pin ${current:0:7} (status: $status); nothing to do."
-            exit 0
-          fi
-
-          sed -i -E "s/^ARG ${ARG_NAME}=[0-9a-f]{40}$/ARG ${ARG_NAME}=${target}/" "$DOCKERFILE"
 
           pr_branch="bump-sources/${NAME}"
-          title="build(${NAME}): ${UPSTREAM} ${UPSTREAM_BRANCH} at ${target:0:7}"
+          title="build(${NAME}): ${UPSTREAM} ${label}"
           {
-            echo "Moves \`${ARG_NAME}\` to the newest \`${UPSTREAM_BRANCH}\` commit that is at least 7 days old."
+            echo "Moves \`${ARG_NAME}\` to the ${what}."
             echo
             echo "Upstream changes: https://github.com/${UPSTREAM}/compare/${current}...${target}"
             echo
