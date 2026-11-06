@@ -69,12 +69,12 @@ jobs:
           IMAGE: ${{ matrix.image }}
         run: bash scripts/smoke-test.sh "$IMAGE"
 
-      # ais-catcher and readsb are each one static binary on distroless: no package database, so an
+      # ais-catcher, readsb and opensky are each one static binary on distroless: no package database, so an
       # image scan finds nothing. The libraries compiled into them are listed in the CycloneDX SBOM
       # each image carries; scan that instead (Kubescape reads the same file in the cluster via
       # scanEmbeddedSBOMs).
       - name: Extract the embedded SBOM
-        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
+        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb' || matrix.image == 'opensky') && (!inputs.image || inputs.image == matrix.image) }}
         env:
           IMAGE: ${{ matrix.image }}
         run: |
@@ -90,7 +90,7 @@ jobs:
       # key rolls over at 08:00 UTC; Grype still checks for a newer DB on a hit.
       - name: Grype DB cache key
         id: grype-db
-        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
+        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb' || matrix.image == 'opensky') && (!inputs.image || inputs.image == matrix.image) }}
         run: |
           set -euo pipefail
           echo "key=grype-db-v6-$(date -u -d '-8 hours' +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
@@ -105,7 +105,7 @@ jobs:
           key: ${{ steps.grype-db.outputs.key }}
 
       - name: Scan the embedded SBOM
-        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb') && (!inputs.image || inputs.image == matrix.image) }}
+        if: ${{ (matrix.image == 'ais-catcher' || matrix.image == 'readsb' || matrix.image == 'opensky') && (!inputs.image || inputs.image == matrix.image) }}
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
           sbom: ${{ runner.temp }}/embedded.cdx.json

@@ -1,8 +1,8 @@
 name: Build opensky container image
 
-# Feeder image (consumes sdr-base/sdr-build:buster — archived Debian).
-# Rebuilt when tag-and-release.yml dispatches it for a v* tag, on workflow_dispatch, and on merges
-# that touch images/opensky/ (Dependabot's sdr-base/sdr-build digest bumps).
+# Feeder image: openskyd-dump1090 from pinned upstream source as a static (musl) binary on
+# distroless (see images/opensky/Dockerfile). Rebuilt when tag-and-release.yml dispatches it for a
+# v* tag, on workflow_dispatch, and on merges that touch images/opensky/ (Dependabot's digest bumps).
 
 on:
   workflow_dispatch:

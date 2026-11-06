@@ -127,7 +127,7 @@ jobs:
               echo "| Distro | Upstream digest | Last-built parent digest | Decision |"
               echo "|---|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for d in buster trixie; do
+          for d in trixie; do
               upstream=$(crane digest "debian:${d}-slim")
               last=""
               if manifest_json=$(crane manifest "ghcr.io/${repo_lc}/sdr-base:${d}" 2>/dev/null); then
@@ -178,22 +178,17 @@ jobs:
     if: ${{ !cancelled() && (needs.precheck.result == 'failure' || needs.precheck.outputs.changed == 'true') }}
     uses: hwinther/reusable-workflows/.github/workflows/gitversion.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
 
-  # trixie is the base for every feeder. buster stays only for opensky (archived Debian, apt
-  # sources rewritten to archive.debian.org) until it moves to trixie. bullseye (dump1090-fa,
-  # replaced by readsb) and bookworm (no consumer) were dropped: bullseye's apt sources stopped
-  # resolving, which failed the build and, through `needs`, skipped sdr-build and every sign job.
+  # trixie only: the base for the remaining Debian feeders (piaware, tar1090) and gsm-tools.
+  # buster went with opensky's static build; bullseye (dump1090-fa, replaced by readsb) and bookworm
+  # (no consumer) before it, when bullseye's apt sources stopped resolving, which failed the build
+  # and, through `needs`, skipped sdr-build and every sign job. The matrix stays so the per-distro
+  # tags (:trixie, :<version>-trixie) keep their shape.
   sdr-base:
     needs: version
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, trixie]
-        # buster needs apt sources rewritten to archive.debian.org; other distros
-        # don't need any extra build args (the empty default applies).
-        include:
-          - debian_release: buster
-            extra_build_args: |
-              USE_ARCHIVE_REPOS=true
+        debian_release: [trixie]
     uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
     with:
       container_image_name_postfix: sdr-base
@@ -228,13 +223,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, trixie]
-        # buster: skip python3-build (not packaged on buster). USE_ARCHIVE_REPOS
-        # is handled by sdr-base; sdr-build inherits the already-rewritten sources.
-        include:
-          - debian_release: buster
-            extra_build_args: |
-              INSTALL_PYTHON_BUILD_TOOLS=false
+        debian_release: [trixie]
     uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@83abef784511f6e7704a512164741a9bdebcbf3a # v2.9.1
     with:
       container_image_name_postfix: sdr-build
@@ -277,7 +266,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, trixie]
+        debian_release: [trixie]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -325,7 +314,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian_release: [buster, trixie]
+        debian_release: [trixie]
     runs-on: ubuntu-latest
     permissions:
       contents: read
