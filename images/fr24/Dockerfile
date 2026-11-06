@@ -3,12 +3,12 @@
 # fr24: Flightradar24's fr24feed, a statically linked binary (glibc static, amd64 and arm64), on
 # distroless/static: no shell, uid 65532. The configuration is fr24feed's own flags (the Deployment's
 # args), so there is no start script and no /etc/fr24feed.ini:
-#   --fr24key=<key> --receiver=avr-tcp --host=dump1090-fa:30002 --bs=no --raw=no --mlat=no
+#   --fr24key=<key> --receiver=avr-tcp --host=readsb:30002 --bs=no --raw=no --mlat=no
 # Status (no key in it) is served on :8754 (/monitor.json), used as the health check.
 #
-# Updates: Dependabot bumps the golang and distroless digests. A new fr24feed is a manual bump of
-# FR24FEED_VERSION plus both sha256 values; the current version is listed in
-# https://repo-feed.flightradar24.com/fr24feed_versions.json.
+# Updates: Dependabot bumps the debian, golang and distroless digests. .github/workflows/
+# bump-fr24feed.yml moves FR24FEED_VERSION and both sha256 values weekly to the version
+# https://repo-feed.flightradar24.com/fr24feed_versions.json lists, once it is 7 days old.
 
 ARG FR24FEED_VERSION=1.0.57-1
 ARG FR24FEED_SHA256_AMD64=7d746c4b32a2f82bb8dd2c7666e3f8eb7028e2833d603fc8a7a6907d6fae328d
@@ -45,4 +45,4 @@ COPY --from=noop-shell /out/noop-shell /bin/bash
 COPY --from=download /out/fr24feed /usr/bin/fr24feed
 EXPOSE 8754
 ENTRYPOINT ["/usr/bin/fr24feed"]
-CMD ["--receiver=avr-tcp", "--host=dump1090-fa:30002", "--bs=no", "--raw=no", "--mlat=no", "--mlat-without-gps=no"]
+CMD ["--receiver=avr-tcp", "--host=readsb:30002", "--bs=no", "--raw=no", "--mlat=no", "--mlat-without-gps=no"]

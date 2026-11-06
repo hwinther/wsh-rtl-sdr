@@ -10,7 +10,9 @@
 # requirements.txt (pip); either change rebuilds the image on merge.
 
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS deps
-RUN apt-get update &&     apt-get install -y --no-install-recommends python3-pip &&     rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip && \
+    rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages --no-deps --target /opt/deps -r /tmp/requirements.txt
 
@@ -22,7 +24,12 @@ COPY start.py /srv/start.py
 # Defaults — override via env / k8s ConfigMap + Secret. RESOURCE_PATH may be a filesystem dir
 # (sidecar sharing readsb's JSON directory) or an http URL to a /data endpoint.
 # LAT/LON refine range calculations; unset falls back to receiver.json's position.
-ENV PYTHONPATH="/opt/deps"     PYTHONDONTWRITEBYTECODE="1"     RESOURCE_PATH="/run/dump1090-fa"     EXPORTER_PORT="9105"     LAT=""     LON=""
+ENV PYTHONPATH="/opt/deps" \
+    PYTHONDONTWRITEBYTECODE="1" \
+    RESOURCE_PATH="/run/readsb" \
+    EXPORTER_PORT="9105" \
+    LAT="" \
+    LON=""
 
 EXPOSE 9105
 ENTRYPOINT ["/usr/bin/python3", "/srv/start.py"]

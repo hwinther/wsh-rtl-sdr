@@ -8,9 +8,8 @@
 #   bash scripts/smoke-test.sh  <image>     (Linux/CI)
 #
 # RF hardware is simulated WITHOUT a dongle:
-#   - readsb runs as a pure --net-only Beast/raw hub (network alias dump1090-fa).
-#     It doubles as the shared hub the network consumers connect to.
-#   - dump1090-fa (replaced by readsb in the cluster) is no longer tested here.
+#   - readsb runs as a pure --net-only Beast/raw hub, the shared hub the network
+#     consumers connect to (by its service name, as in the cluster).
 #   - ais-catcher reads an infinite zero IQ stream (/dev/zero) instead of an
 #     RTL-SDR; its web server still comes up, which ais-catcher-probe checks.
 #   - dump1090-exporter and adsb-mqtt read the hub's JSON directory; adsb-mqtt publishes to a
@@ -30,16 +29,13 @@ networks:
 services:
   # --- RF image: ADS-B decoder (readsb), run as a no-SDR Beast/raw hub ------
   # --net-only => no SDR is opened; it still listens on 30002-30005/30104 and writes its JSON
-  # directory, which is the dongle simulation. The network alias keeps the consumers' default
-  # RECEIVER_HOST (dump1090-fa) working, as it does in the cluster, where the Service keeps that
-  # name. Distroless: no shell, so readsb-probe below carries the health check.
+  # directory, which is the dongle simulation. Distroless: no shell, so readsb-probe below
+  # carries the health check.
   readsb:
     build:
       context: ./images/readsb
     image: wsh-rtl-sdr-smoketest/readsb
-    networks:
-      sdrtest:
-        aliases: [dump1090-fa]
+    networks: [sdrtest]
     command:
       - --net-only
       - --net-ro-port
@@ -294,7 +290,7 @@ services:
     command:
       - --fr24key=0000000000000000
       - --receiver=avr-tcp
-      - --host=dump1090-fa:30002
+      - --host=readsb:30002
       - --bs=no
       - --raw=no
       - --mlat=no
@@ -354,9 +350,9 @@ configs:
       allow-mlat yes
       mlat-results yes
       receiver-type other
-      receiver-host dump1090-fa
+      receiver-host readsb
       receiver-port 30005
-      mlat-results-format beast,connect,dump1090-fa:30104
+      mlat-results-format beast,connect,readsb:30104
       use-gpsd no
       adept-serverhosts 127.0.0.1
   opensky-conf:
@@ -374,5 +370,5 @@ configs:
       Username=smoketest
 
       [INPUT]
-      Host=dump1090-fa
+      Host=readsb
       Port=30005

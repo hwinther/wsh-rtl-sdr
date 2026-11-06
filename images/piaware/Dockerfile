@@ -6,12 +6,13 @@
 # socat or start script either: piaware itself is the entrypoint.
 #
 # Configuration: /etc/piaware.conf, mounted from the Deployment's Secret (it holds feeder-id).
-# receiver-type=relay points faup1090 and fa-mlat-client straight at dump1090-fa:30005 (the old
-# image proxied that to localhost with socat for receiver-type=other). piaware writes to
+# receiver-type other with receiver-host readsb, receiver-port 30005 points faup1090 and
+# fa-mlat-client straight at readsb (piaware's "relay" always means a local beast-splitter on
+# localhost; the old image proxied localhost:30005 to the decoder with socat). piaware writes to
 # /var/cache/piaware and /run/piaware, which must be writable (emptyDirs).
 #
-# Updates: Dependabot bumps the debian digest. A new piaware_builder tag is a manual PIAWARE_VERSION
-# bump (https://github.com/flightaware/piaware_builder/tags).
+# Updates: Dependabot bumps the debian digest. .github/workflows/bump-sources.yml (tag mode) moves
+# PIAWARE_VERSION weekly to the newest piaware_builder tag that is at least 7 days old.
 
 ARG PIAWARE_VERSION=v11.1
 
