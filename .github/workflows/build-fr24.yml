@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   fr24:
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@9e34c466e07a78ce6d982d0846b08ba51f38701f # v2.20.1
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@52083df4f159415d37ce3365a8df0761d5a67516 # v2.23.0
     with:
       container_image_name_postfix: fr24
       build_context: images/fr24
