@@ -339,6 +339,26 @@ services:
       - 'command -v rtl_sdr && command -v kal && command -v grgsm_livemon && echo "gsm-tools OK"'
     profiles: [gsm-tools]
 
+  # Runs once and exits 0 iff the tools run (as uid 65532) and SoapySDR finds its modules. No
+  # dongle in CI, so nothing touches a device.
+  sdr-toolbox:
+    build:
+      context: ./images/sdr-toolbox
+    image: wsh-rtl-sdr-smoketest/sdr-toolbox
+    networks: [sdrtest]
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        test "$$(id -u)" = 65532 &&
+        rtl_433 -V &&
+        command -v rtl_test rtl_sdr rtl_tcp rtl_power multimon-ng hackrf_info airspy_info &&
+        SoapySDRUtil --info | grep -q "Available factories.*rtlsdr" &&
+        readsb --version && AIS-catcher -h | head -n 1 &&
+        python3 -c "import numpy" &&
+        echo "sdr-toolbox OK"
+    profiles: [sdr-toolbox]
+
 volumes:
   readsb-json:
 

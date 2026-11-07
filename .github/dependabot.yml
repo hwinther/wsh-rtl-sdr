@@ -29,6 +29,7 @@ updates:
   - "/images/adsb-mqtt"
   - "/images/dump1090-exporter"
   - "/images/gsm-tools"
+  - "/images/sdr-toolbox"
   schedule:
     interval: "daily"
   cooldown:

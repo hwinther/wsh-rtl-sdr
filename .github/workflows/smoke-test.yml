@@ -56,6 +56,7 @@ jobs:
           - opensky
           - adsb-mqtt
           - dump1090-exporter
+          - sdr-toolbox
     steps:
       - name: Checkout repository
         if: ${{ !inputs.image || inputs.image == matrix.image }}

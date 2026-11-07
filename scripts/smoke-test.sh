@@ -23,9 +23,10 @@ declare -A MODE=(
   [adsb-mqtt]=wait
   [dump1090-exporter]=wait
   [gsm-tools]=runonce
+  [sdr-toolbox]=runonce
 )
 # ALL_IMAGES=(readsb ais-catcher tar1090 piaware fr24 opensky adsb-mqtt dump1090-exporter gsm-tools) # Disable gsm-tools for now - it takes too long
-ALL_IMAGES=(readsb ais-catcher tar1090 piaware fr24 opensky adsb-mqtt dump1090-exporter)
+ALL_IMAGES=(readsb ais-catcher tar1090 piaware fr24 opensky adsb-mqtt dump1090-exporter sdr-toolbox)
 
 WAIT_TIMEOUT="${SMOKE_WAIT_TIMEOUT:-300}"
 
