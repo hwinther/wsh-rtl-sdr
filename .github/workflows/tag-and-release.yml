@@ -73,7 +73,7 @@ jobs:
           echo "Using ref: $REF"
           echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
-      # Every application image (SDR decoders, feeders, tar1090, adsb-mqtt, dump1090-exporter)
+      # Every application image (SDR decoders, feeders, tar1090, adsb-mqtt, dump1090-exporter, sdr-toolbox)
       # gets rebuilt against the new v* tag so each release produces a fresh per-image
       # semver-tagged build.
       # Keep this list in sync when adding a build-*.yml. gsm-tools is a developer tool and is
@@ -99,7 +99,8 @@ jobs:
             build-fr24.yml \
             build-opensky.yml \
             build-piaware.yml \
-            build-tar1090.yml ; do
+            build-tar1090.yml \
+            build-sdr-toolbox.yml ; do
             echo "Dispatching $wf at $REF (grype_fail_build=$GRYPE_FAIL_BUILD)"
             gh workflow run "$wf" --ref "$REF" -f grype_fail_build="$GRYPE_FAIL_BUILD"
           done

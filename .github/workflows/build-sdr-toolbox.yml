@@ -1,0 +1,43 @@
+name: Build sdr-toolbox container image
+
+# Debugging/experimentation image for the edge dongles (rtl-sdr, rtl_433, multimon-ng, SoapySDR,
+# readsb, AIS-catcher; see images/sdr-toolbox/Dockerfile), Debian packages, so arm64 builds under
+# QEMU. Rebuilt on merges that touch images/sdr-toolbox/ and on every release, since the edge
+# cluster runs it (on demand) and Dependabot bumps it with the other images.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grype_fail_build:
+        description: "Fail the build if Grype finds vulnerabilities"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "images/sdr-toolbox/**"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+  actions: write
+  security-events: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sdr-toolbox:
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@52083df4f159415d37ce3365a8df0761d5a67516 # v2.23.0
+    with:
+      container_image_name_postfix: sdr-toolbox
+      build_context: images/sdr-toolbox
+      dockerfile: images/sdr-toolbox/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      # Report, don't gate: a debugging tool built from Debian packages, whose fixable findings only a
+      # Debian update can fix (as gsm-tools). Findings still go to code scanning.
+      grype_fail_build: never
