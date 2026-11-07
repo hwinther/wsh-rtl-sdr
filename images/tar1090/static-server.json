@@ -1,0 +1,12 @@
+{
+  "root": "/usr/share/tar1090/html",
+  "mounts": [{ "prefix": "/data/", "dir": "/run/readsb" }],
+  "rules": [
+    { "match": "\\.(js|css|png|svg|ico|gif|jpg)$", "cacheControl": "public, max-age=1209600" },
+    { "match": "^/(index\\.html|config\\.js|upintheair\\.json|version\\.json)?$", "cacheControl": "no-cache" },
+    { "match": "^/db-[^/]+/.*\\.js$", "contentEncoding": "gzip" },
+    { "match": "^/data/", "cacheControl": "no-cache" },
+    { "match": "^/data/.*\\.json$", "compress": true },
+    { "match": "(\\.binCraft$|/globe_[0-9]+\\.json$|/trace_(recent|full)_)", "contentEncoding": "gzip" }
+  ]
+}
