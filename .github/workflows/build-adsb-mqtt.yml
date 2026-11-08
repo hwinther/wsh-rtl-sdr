@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   adsb-mqtt:
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
     with:
       container_image_name_postfix: adsb-mqtt
       build_context: images/adsb-mqtt

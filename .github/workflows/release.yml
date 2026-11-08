@@ -1,4 +1,4 @@
-name: Release
+name: Publish release
 
 # One release = the nine edge images built at a v* tag, then ONE signed manifest artifact
 # (ghcr.io/hwinther/wsh-rtl-sdr/manifests:<version>) that pins all of them to tag@digest. The
@@ -6,9 +6,9 @@ name: Release
 # sees an artifact that references an image that failed or isn't pushed yet.
 #
 # Triggers:
-#   push: tags v*      a tag pushed with a GitHub App token (GITHUB_TOKEN tag pushes don't trigger
-#                      workflows). Until tag-and-release.yml pushes with an App token, it dispatches
-#                      this workflow at the new tag instead.
+#   push: tags v*      the tag "Create release" (tag-and-release.yml) pushes with the
+#                      wshno-devops-bot App token (GITHUB_TOKEN tag pushes don't trigger workflows),
+#                      or a v* tag pushed by hand.
 #   workflow_dispatch  rerun a release at a tag (pick the tag in "Use workflow from"), e.g. with the
 #                      Grype gate off when upstream feeders carry vulnerabilities we can't fix.
 #
@@ -71,7 +71,7 @@ jobs:
       actions: write
       security-events: write
       pull-requests: write
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
     with:
       container_image_name_postfix: ${{ matrix.image }}
       build_context: images/${{ matrix.image }}
@@ -132,7 +132,7 @@ jobs:
       # Signed in this job, so the artifact's cosign identity is release.yml@refs/tags/v<version>.
       # One directory per Flux Kustomization path (see deploy/README.md).
       - name: Render, validate, push and sign
-        uses: hwinther/reusable-workflows/.github/actions/manifests@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+        uses: hwinther/reusable-workflows/.github/actions/manifests@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
         with:
           mode: push
           artifact: ghcr.io/hwinther/wsh-rtl-sdr/manifests
