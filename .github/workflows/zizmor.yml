@@ -1,3 +1,4 @@
+# Synced from wshno/devops settings-sync/files/workflows/zizmor.yml: change it there.
 name: GitHub Actions Security Analysis with zizmor 🌈
 
 on:
@@ -5,6 +6,8 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["**"]
+
+permissions: {}
 
 jobs:
   zizmor:

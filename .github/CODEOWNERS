@@ -1,1 +1,9 @@
-* @hwinther
+# Synced from wshno/devops settings-sync/files/CODEOWNERS: change it there.
+#
+# Only what can do the most harm needs the owner's review (rulesets with "require code owner
+# review"); a PR that touches nothing below can merge on green checks, e.g. Dependabot npm/NuGet/
+# Docker bumps.
+/.github/workflows/   @hwinther
+/.github/actions/     @hwinther
+/.github/CODEOWNERS   @hwinther
+/deploy/              @hwinther
