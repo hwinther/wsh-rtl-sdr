@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Renovate covers only what Dependabot can't: third-party images in the Kubernetes manifests under deploy/ (today the busybox init container in deploy/adsb/readsb.yaml). Dependabot keeps the Dockerfiles under images/ and the GitHub Actions.",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["kubernetes"],
+  "kubernetes": {
+    "managerFilePatterns": ["/^deploy/.+\\.ya?ml$/"]
+  },
+  "schedule": ["* * * * 1"],
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "commitMessagePrefix": "chore(deps):",
+  "packageRules": [
+    {
+      "description": "This repo's own images are placeholders in deploy/; release.yml pins them to tag@digest when it renders the manifest artifact.",
+      "matchPackageNames": ["ghcr.io/hwinther/wsh-rtl-sdr/**"],
+      "enabled": false
+    }
+  ]
+}
