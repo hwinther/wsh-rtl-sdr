@@ -1,31 +1,30 @@
-name: Tag and release
+name: Create release
 
-# Manually dispatched: creates a v* tag (or auto-bumps minor from latest), optionally a
-# GitHub Release, then starts release.yml at the new tag. release.yml builds the nine edge images
-# and publishes the signed manifest artifact once all of them are pushed.
-# A tag pushed with GITHUB_TOKEN does not fire on.push.tags, so release.yml is dispatched here.
-# Once the tag is pushed with a GitHub App token, release.yml starts from the tag push itself and
-# the dispatch job below goes away.
+# Manually dispatched: creates a v* tag (or auto-bumps minor from latest) and, optionally, a GitHub
+# Release. The tag is pushed with the wshno-devops-bot GitHub App's token, so the push itself starts
+# "Publish release" (release.yml), which builds the nine edge images and publishes the signed
+# manifest artifact once all of them are pushed. (A tag pushed with GITHUB_TOKEN wouldn't trigger it.)
+#
+# Upstream feeders carry vulnerabilities we can't fix? Let "Publish release" fail on the Grype gate,
+# then run it by hand at the tag ("Use workflow from" -> the tag) with "Skip the Grype gate" on.
+#
+# Needs: repository variable DEVOPS_BOT_CLIENT_ID and secret DEVOPS_BOT_PRIVATE_KEY, and the App
+# installed on this repo with Contents: write.
 
 on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Tag name (e.g. v1.2.3, or 'auto' to bump minor from the latest tag)"
+        description: "Version tag (e.g. v1.2.3), or 'auto' for the next minor"
         required: false
         default: "auto"
       release_notes:
-        description: "Release notes for this tag"
+        description: "Release notes"
         required: false
       create_release:
-        description: "Create a GitHub Release for this tag"
+        description: "Also create a GitHub Release"
         required: false
         default: true
-        type: boolean
-      skip_grype_gate:
-        description: "Skip the Grype severity-cutoff gate on dispatched image builds (still reports findings, but doesn't fail the build). Use when upstream feeders carry vulnerabilities we can't fix."
-        required: false
-        default: false
         type: boolean
 
 permissions: {}
@@ -34,37 +33,11 @@ jobs:
   tag:
     permissions:
       contents: write
-    # No `secrets:` block: the reusable tag-and-release.yml uses only GITHUB_TOKEN
-    # (auto-available to called workflows). Avoids the zizmor "secrets unconditionally
-    # inherited" finding.
-    uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+    uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
     with:
       tag_name: ${{ inputs.tag_name }}
       release_notes: ${{ inputs.release_notes }}
       create_release: ${{ inputs.create_release }}
-
-  release:
-    needs: tag
-    if: success()
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      # Skip-grype-gate is forwarded to release.yml, which passes it to every image build.
-      - name: Dispatch release.yml at the new tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          REF: ${{ needs.tag.outputs.tag_name }}
-          SKIP_GRYPE_GATE: ${{ inputs.skip_grype_gate }}
-        run: |
-          set -euo pipefail
-          if [ -z "$REF" ]; then
-            echo "::error::The tag job reported no tag name."
-            exit 1
-          fi
-          if [ "$SKIP_GRYPE_GATE" = "true" ]; then
-            echo "::notice::Grype severity-cutoff gate skipped: builds still report findings but won't fail."
-          fi
-          echo "Dispatching release.yml at $REF (skip_grype_gate=$SKIP_GRYPE_GATE)"
-          gh workflow run release.yml --repo "$REPO" --ref "$REF" -f skip_grype_gate="$SKIP_GRYPE_GATE"
+      app_client_id: ${{ vars.DEVOPS_BOT_CLIENT_ID }}
+    secrets:
+      app_private_key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
