@@ -1,0 +1,40 @@
+name: "Manifest diff"
+
+# Renders deploy/ for the PR head and its base, validates the head, and posts a review report
+# (a resource map plus a dyff per changed resource) to the job summary and a sticky PR comment, so
+# manifest review happens here rather than in the cluster repo's tag bump. Both sides keep the
+# placeholder image tags; release.yml pins tag@digest.
+
+on:
+  pull_request:
+    paths:
+      - "deploy/**"
+      - ".github/workflows/manifest-diff.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.head_ref }}"
+  cancel-in-progress: true
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Render, validate and report
+        uses: hwinther/reusable-workflows/.github/actions/manifests@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+        with:
+          mode: diff
+          renders: |
+            adsb/manifests.yaml=deploy/adsb
+            ais-catcher/manifests.yaml=deploy/ais-catcher
+            sdr-debug/manifests.yaml=deploy/sdr-debug

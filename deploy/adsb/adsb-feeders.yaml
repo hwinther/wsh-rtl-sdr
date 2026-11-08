@@ -1,0 +1,404 @@
+# Piaware / FR24 / adsbexchange / opensky — reach readsb via in-namespace Service (beast ports).
+# Requires node label edge-sdr/adsb-antenna=true (hardware with ADS-B antenna/SDR).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: piaware
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: piaware
+  template:
+    metadata:
+      labels:
+        app: piaware
+        app.kubernetes.io/name: piaware
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Group-owns the mounted piaware.conf (mode 0440 below) so uid 65532 can read it.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      # 0.13.0: piaware v11.1 on plain debian:trixie-slim (tcl + python at runtime), no s6, socat,
+      # lighttpd or start script; piaware is the entrypoint. /etc/piaware.conf comes from adsb-secret
+      # (key piaware.conf, "key value" lines incl. feeder-id): receiver-type other with
+      # receiver-host readsb:30005, MLAT results back to readsb:30104. piaware writes to
+      # /var/cache/piaware and /run/piaware (emptyDirs).
+      - name: piaware
+        image: ghcr.io/hwinther/wsh-rtl-sdr/piaware
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: piaware-conf
+          mountPath: /etc/piaware.conf
+          subPath: piaware.conf
+          readOnly: true
+        - name: piaware-cache
+          mountPath: /var/cache/piaware
+        - name: piaware-run
+          mountPath: /run/piaware
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+      volumes:
+      - name: piaware-conf
+        secret:
+          secretName: adsb-secret
+          defaultMode: 0440
+          items:
+          - key: piaware.conf
+            path: piaware.conf
+      - name: piaware-cache
+        emptyDir:
+          sizeLimit: 8Mi
+      - name: piaware-run
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Mi
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 32Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fr24
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: fr24
+  template:
+    metadata:
+      labels:
+        app: fr24
+        app.kubernetes.io/name: fr24
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      # 0.11.0: Flightradar24's static fr24feed 1.0.57-1 on distroless, no start script, so the
+      # settings are fr24feed's own flags. FR24_KEY comes from adsb-secret (fr24feed does not log
+      # its command line). Status on :8754/monitor.json (no key in it) is the health check.
+      - name: fr24
+        image: ghcr.io/hwinther/wsh-rtl-sdr/fr24
+        imagePullPolicy: IfNotPresent
+        args:
+        - --fr24key=$(FR24_KEY)
+        - --receiver=avr-tcp
+        - --host=readsb:30002
+        - --bs=no
+        - --raw=no
+        - --mlat=no
+        - --mlat-without-gps=no
+        envFrom:
+        - secretRef:
+            name: adsb-secret
+        ports:
+        - name: status
+          containerPort: 8754
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /monitor.json
+            port: status
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /monitor.json
+            port: status
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 6
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 500m
+            memory: 192Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adsbexchange
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: adsbexchange
+  template:
+    metadata:
+      labels:
+        app: adsbexchange
+        app.kubernetes.io/name: adsbexchange
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Group-owns the mounted UUID file (mode 0440 below) so uid 65532 can read it.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      # The ADSBexchange feed client is readsb in network-only mode (feedclient's feed-adsbx is a
+      # readsb build), so this runs our static readsb image with feedclient's feed settings: Beast in
+      # from readsb:30005, BeastReduce out to feed1/feed2.adsbexchange.com. MLAT was never on
+      # (the old image wrote USER="0", which disables feedclient's mlat-client), so no mlat-client.
+      # beast_reduce_plus_out carries the feeder UUID (ADSBX_UUID in adsb-secret, read from a file so
+      # it stays out of readsb's "invoked by" log line); the old beast_reduce_out sent none.
+      - name: adsbexchange
+        image: ghcr.io/hwinther/wsh-rtl-sdr/readsb
+        imagePullPolicy: IfNotPresent
+        args:
+        - --net-only
+        - --quiet
+        - --net-connector
+        - readsb,30005,beast_in,silent_fail
+        - --net-connector
+        - feed1.adsbexchange.com,30004,beast_reduce_plus_out,feed2.adsbexchange.com,64004
+        - --uuid-file
+        - /etc/adsbx/uuid
+        - --net-beast-reduce-interval
+        - "0.5"
+        - --net-heartbeat
+        - "60"
+        - --net-ro-size
+        - "1280"
+        - --net-ro-interval
+        - "0.2"
+        - --net-ro-port
+        - "0"
+        - --net-sbs-port
+        - "0"
+        - --net-bi-port
+        - "0"
+        - --net-bo-port
+        - "0"
+        - --net-ri-port
+        - "0"
+        - --lat
+        - $(READSB_LAT)
+        - --lon
+        - $(READSB_LON)
+        - --max-range
+        - "450"
+        envFrom:
+        - configMapRef:
+            name: adsb-env
+        - secretRef:
+            name: adsb-secret
+            optional: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: adsbx-uuid
+          mountPath: /etc/adsbx
+          readOnly: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+      volumes:
+      - name: adsbx-uuid
+        secret:
+          secretName: adsb-secret
+          defaultMode: 0440
+          items:
+          - key: ADSBX_UUID
+            path: uuid
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensky
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: opensky
+  template:
+    metadata:
+      labels:
+        app: opensky
+        app.kubernetes.io/name: opensky
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Group-owns the mounted opensky.conf (mode 0440 below) so uid 65532 can read it.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      # 0.12.0: openskyd-dump1090 as one static binary on distroless, no start script. It reads every
+      # *.conf in /etc/openskyd/conf.d (opensky.conf from adsb-secret: [GPS] position, [DEVICE]
+      # type and serial, [IDENT] username, [INPUT] readsb:30005) and /var/lib/openskyd/conf.d,
+      # where it would save a serial OpenSky assigns (an emptyDir: the serial is in the Secret).
+      - name: opensky
+        image: ghcr.io/hwinther/wsh-rtl-sdr/opensky
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: opensky-conf
+          mountPath: /etc/openskyd/conf.d
+          readOnly: true
+        - name: opensky-state
+          mountPath: /var/lib/openskyd
+        resources:
+          requests:
+            cpu: 20m
+            memory: 8Mi
+          limits:
+            cpu: 500m
+            memory: 64Mi
+      volumes:
+      - name: opensky-conf
+        secret:
+          secretName: adsb-secret
+          defaultMode: 0440
+          items:
+          - key: opensky.conf
+            path: 10-opensky.conf
+      - name: opensky-state
+        emptyDir:
+          sizeLimit: 1Mi

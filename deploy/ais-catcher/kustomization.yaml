@@ -1,0 +1,16 @@
+# AIS decoder: AIS-catcher.
+#
+# Rendered into ghcr.io/hwinther/wsh-rtl-sdr/manifests:<version> as `ais-catcher/manifests.yaml` by the `manifests` job
+# in .github/workflows/release.yml. The cluster repo (hwinther/proxmox) applies it with a Flux
+# Kustomization that sets the namespace (targetNamespace) and the variables; see ../README.md for
+# the contract.
+#
+# Never commit rendered output. Release pins every image to tag@digest; the tag here is only a
+# placeholder so `kubectl kustomize deploy/ais-catcher` renders locally.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ais-catcher.yaml
+images:
+- name: ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher
+  newTag: 0.0.0-dev

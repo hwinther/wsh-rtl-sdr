@@ -1,0 +1,16 @@
+# On-demand sdr-toolbox debug jobs (suspended CronJobs, one per dongle).
+#
+# Rendered into ghcr.io/hwinther/wsh-rtl-sdr/manifests:<version> as `sdr-debug/manifests.yaml` by the `manifests` job
+# in .github/workflows/release.yml. The cluster repo (hwinther/proxmox) applies it with a Flux
+# Kustomization that sets the namespace (targetNamespace) and the variables; see ../README.md for
+# the contract.
+#
+# Never commit rendered output. Release pins every image to tag@digest; the tag here is only a
+# placeholder so `kubectl kustomize deploy/sdr-debug` renders locally.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- sdr-toolbox-cronjobs.yaml
+images:
+- name: ghcr.io/hwinther/wsh-rtl-sdr/sdr-toolbox
+  newTag: 0.0.0-dev

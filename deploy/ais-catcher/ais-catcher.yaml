@@ -1,0 +1,177 @@
+# Schedules on Raspberry Pi edge workers: label role=sdr-edge, edge-sdr/ais-antenna=true,
+# and taint node-type=edge-sdr:NoSchedule. The dongle comes from the device plugin
+# (sdr.wsh.no/rtlsdr-ais, see sdr-device-plugin-edge-sdr), so the pod runs unprivileged as 65532.
+# Image from compose servers/radio-pi02/ais/docker-compose.yaml (GHCR publish workflow).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ais-catcher
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ais-catcher
+  template:
+    metadata:
+      labels:
+        app: ais-catcher
+        app.kubernetes.io/name: ais-catcher
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/ais-antenna
+                operator: In
+                values:
+                - "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Group-owns the mounted feeds.json (mode 0440 below) so uid 65532 can read it.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: ais-catcher
+        # 0.9.0: one static AIS-catcher binary on distroless, with no shell and no start script,
+        # so the command line is below. `-N PROME on` serves Prometheus metrics at :8080/metrics,
+        # scraped by prometheus-agent-edge-sdr.
+        image: ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher
+        imagePullPolicy: IfNotPresent
+        # $(VAR) comes from the env below: ConfigMap first, then Secret, so the Secret's exact LAT/LON
+        # win. Kubernetes passes each $(VAR) as ONE argument, so multi-word values cannot go here:
+        # the feeds (-X key, -u targets, MQTT with its password) are in the Secret's feeds.json,
+        # read with -C (see README.md).
+        args:
+        - -M
+        - DT
+        - -gr
+        - TUNER
+        - "38.6"
+        - RTLAGC
+        - "off"
+        - BIASTEE
+        - $(BIASTEE)
+        - -s
+        - 2304k
+        - -p
+        - "0"
+        - -o
+        - "0"
+        - -N
+        - "8080"
+        - GEOJSON
+        - "on"
+        - STATION
+        - $(STATION_NAME)
+        - STATION_LINK
+        - $(STATION_URL)
+        - LAT
+        - $(LAT)
+        - LON
+        - $(LON)
+        - SHARE_LOC
+        - "on"
+        - -N
+        - PLUGIN_DIR
+        - /usr/share/aiscatcher/my-plugins
+        - -N
+        - REALTIME
+        - "on"
+        - -N
+        - PROME
+        - "on"
+        - -d
+        - $(DEVICE_INDEX)
+        - -C
+        - /etc/ais-catcher/feeds.json
+        envFrom:
+        - configMapRef:
+            name: ais-catcher-env
+        - secretRef:
+            name: ais-catcher-secret
+            optional: true
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 6
+        # The device plugin passes in only this dongle's /dev/bus/usb node; containerd's
+        # device_ownership_from_security_context makes it owned by 65532 (the host node is
+        # root:root 0664), see infra/k0s/raspberry-pi-worker.md.
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: feeds
+          mountPath: /etc/ais-catcher
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi
+            sdr.wsh.no/rtlsdr-ais: 1
+      volumes:
+      # The feeds config (key feeds.json in ais-catcher-secret). Not optional: without it AIS-catcher
+      # would start with no feeds, so the pod waits for the Secret instead.
+      - name: feeds
+        secret:
+          secretName: ais-catcher-secret
+          defaultMode: 0440
+          items:
+          - key: feeds.json
+            path: feeds.json
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ais-catcher
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: ais-catcher
