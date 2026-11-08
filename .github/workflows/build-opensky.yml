@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   opensky:
-    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@52083df4f159415d37ce3365a8df0761d5a67516 # v2.23.0
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
     with:
       container_image_name_postfix: opensky
       build_context: images/opensky
