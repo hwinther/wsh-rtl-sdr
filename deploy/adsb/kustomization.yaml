@@ -1,0 +1,31 @@
+# ADS-B stack: readsb (+ dump1090-exporter), tar1090, the feeders and adsb-mqtt.
+#
+# Rendered into ghcr.io/hwinther/wsh-rtl-sdr/manifests:<version> as `adsb/manifests.yaml` by the `manifests` job
+# in .github/workflows/release.yml. The cluster repo (hwinther/proxmox) applies it with a Flux
+# Kustomization that sets the namespace (targetNamespace) and the variables; see ../README.md for
+# the contract.
+#
+# Never commit rendered output. Release pins every image to tag@digest; the tag here is only a
+# placeholder so `kubectl kustomize deploy/adsb` renders locally.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- readsb.yaml
+- tar1090.yaml
+- adsb-feeders.yaml
+- adsb-mqtt.yaml
+images:
+- name: ghcr.io/hwinther/wsh-rtl-sdr/readsb
+  newTag: 0.0.0-dev
+- name: ghcr.io/hwinther/wsh-rtl-sdr/dump1090-exporter
+  newTag: 0.0.0-dev
+- name: ghcr.io/hwinther/wsh-rtl-sdr/tar1090
+  newTag: 0.0.0-dev
+- name: ghcr.io/hwinther/wsh-rtl-sdr/piaware
+  newTag: 0.0.0-dev
+- name: ghcr.io/hwinther/wsh-rtl-sdr/fr24
+  newTag: 0.0.0-dev
+- name: ghcr.io/hwinther/wsh-rtl-sdr/opensky
+  newTag: 0.0.0-dev
+- name: ghcr.io/hwinther/wsh-rtl-sdr/adsb-mqtt
+  newTag: 0.0.0-dev

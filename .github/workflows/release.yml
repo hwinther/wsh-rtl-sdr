@@ -1,0 +1,144 @@
+name: Release
+
+# One release = the nine edge images built at a v* tag, then ONE signed manifest artifact
+# (ghcr.io/hwinther/wsh-rtl-sdr/manifests:<version>) that pins all of them to tag@digest. The
+# manifests job `needs` every build, so the cluster (Flux OCIRepository in hwinther/proxmox) never
+# sees an artifact that references an image that failed or isn't pushed yet.
+#
+# Triggers:
+#   push: tags v*      a tag pushed with a GitHub App token (GITHUB_TOKEN tag pushes don't trigger
+#                      workflows). Until tag-and-release.yml pushes with an App token, it dispatches
+#                      this workflow at the new tag instead.
+#   workflow_dispatch  rerun a release at a tag (pick the tag in "Use workflow from"), e.g. with the
+#                      Grype gate off when upstream feeders carry vulnerabilities we can't fix.
+#
+# Either way github.ref is refs/tags/v<version>, so the artifact's cosign identity is
+# .github/workflows/release.yml@refs/tags/v<version>, which the OCIRepository verifies.
+#
+# The per-image build-*.yml workflows stay as they are for builds on merges to main and manual
+# dispatches. gsm-tools is a developer tool and isn't part of a release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      skip_grype_gate:
+        description: "Skip the Grype severity-cutoff gate (still reports findings, doesn't fail the build)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require a v* tag
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          case "$REF" in
+            refs/tags/v*) echo "Releasing $REF" ;;
+            *) echo "::error::Run this at a v* tag (got $REF)."; exit 1 ;;
+          esac
+
+  build:
+    needs: guard
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - adsb-mqtt
+          - ais-catcher
+          - dump1090-exporter
+          - fr24
+          - opensky
+          - piaware
+          - readsb
+          - sdr-toolbox
+          - tar1090
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      actions: write
+      security-events: write
+      pull-requests: write
+    uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+    with:
+      container_image_name_postfix: ${{ matrix.image }}
+      build_context: images/${{ matrix.image }}
+      dockerfile: images/${{ matrix.image }}/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      artifact_name_suffix: ${{ matrix.image }}
+      grype_fail_build: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_grype_gate && 'never' || 'auto' }}
+
+  manifests:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Matrix outputs can't be read per entry, so resolve each image's digest from the registry by
+      # the release tag. Every build ran GitVersion on this tag, so they all pushed :<version>.
+      - name: Resolve the release images
+        id: images
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          BUILD_VERSION: ${{ needs.build.outputs.version }}
+          IMAGES: adsb-mqtt ais-catcher dump1090-exporter fr24 opensky piaware readsb sdr-toolbox tar1090
+        run: |
+          set -euo pipefail
+          version="${REF_NAME#v}"
+          if [ -n "$BUILD_VERSION" ] && [ "$BUILD_VERSION" != "$version" ]; then
+            echo "::error::GitVersion said $BUILD_VERSION for tag $REF_NAME; refusing to publish a mismatched artifact."
+            exit 1
+          fi
+          refs=""
+          for name in $IMAGES; do
+            image="ghcr.io/hwinther/wsh-rtl-sdr/$name:$version"
+            raw=$(docker buildx imagetools inspect --raw "$image")
+            digest=$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | jq -r .digest)
+            for platform in amd64 arm64; do
+              if ! echo "$raw" | jq -e --arg a "$platform" '.manifests[]? | select(.platform.os == "linux" and .platform.architecture == $a)' >/dev/null; then
+                echo "::error::$image has no linux/$platform manifest."
+                exit 1
+              fi
+            done
+            echo "$image@$digest"
+            refs+="$image@$digest"$'\n'
+          done
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "refs<<EOF"
+            printf '%s' "$refs"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Signed in this job, so the artifact's cosign identity is release.yml@refs/tags/v<version>.
+      # One directory per Flux Kustomization path (see deploy/README.md).
+      - name: Render, validate, push and sign
+        uses: hwinther/reusable-workflows/.github/actions/manifests@3c1d9515664e32cffe91cb44845be94dd4c6fdf6 # v2.25.0
+        with:
+          mode: push
+          artifact: ghcr.io/hwinther/wsh-rtl-sdr/manifests
+          tag: ${{ steps.images.outputs.version }}
+          images: ${{ steps.images.outputs.refs }}
+          renders: |
+            adsb/manifests.yaml=deploy/adsb
+            ais-catcher/manifests.yaml=deploy/ais-catcher
+            sdr-debug/manifests.yaml=deploy/sdr-debug

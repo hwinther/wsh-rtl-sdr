@@ -1,0 +1,147 @@
+# Serves readsb's JSON directory (hostPath under /run, shared with the readsb pod), so it must
+# schedule on the same node (podAffinity).
+# Requires node label edge-sdr/adsb-antenna=true (hardware with ADS-B antenna/SDR).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tar1090
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: tar1090
+  template:
+    metadata:
+      labels:
+        app: tar1090
+        app.kubernetes.io/name: tar1090
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: readsb
+            topologyKey: kubernetes.io/hostname
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Group-owns the mounted upintheair.json (mode 0440 below) so uid 65532 can read it.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      # 0.14.0: tar1090's static UI served by a small Go file server on distroless (:8080). Tracks come
+      # from readsb's globe mode (--write-json-globe-index) in its JSON directory, served as /data/.
+      # config.js (overrides only; defaults.js holds the rest) comes from the tar1090-config
+      # ConfigMap, upintheair.json (HeyWhatsThat range rings) from adsb-secret.
+      - name: tar1090
+        image: ghcr.io/hwinther/wsh-rtl-sdr/tar1090
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: dump1090-run
+          mountPath: /run/readsb
+          readOnly: true
+        - name: config
+          mountPath: /usr/share/tar1090/html/config.js
+          subPath: config.js
+          readOnly: true
+        - name: upintheair
+          mountPath: /usr/share/tar1090/html/upintheair.json
+          subPath: upintheair.json
+          readOnly: true
+        readinessProbe:
+          httpGet:
+            path: /data/receiver.json
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 6
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 500m
+            memory: 64Mi
+      volumes:
+      - name: dump1090-run
+        hostPath:
+          path: /run/k8s-edge-sdr/readsb
+          type: DirectoryOrCreate
+      - name: config
+        configMap:
+          name: tar1090-config
+      - name: upintheair
+        secret:
+          secretName: adsb-secret
+          defaultMode: 0440
+          items:
+          - key: upintheair.json
+            path: upintheair.json
+---
+# tar1090's config.js, loaded after defaults.js: only the overrides. A change here needs a rollout
+# restart (subPath mounts do not update).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tar1090-config
+data:
+  config.js: |
+    // Overrides of tar1090's defaults.js.
+    aiscatcher_server = "${AIS_CATCHER_URL}";
+    aiscatcher_refresh = 15;
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tar1090
+spec:
+  selector:
+    app: tar1090
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP

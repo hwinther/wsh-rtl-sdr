@@ -1,0 +1,100 @@
+# Publishes readsb's decoded aircraft.json to the production Mosquitto broker (full snapshot
+# per poll → topic adsb/aircraft). readsb has no native MQTT, and it serves the JSON only as a
+# file on the shared hostPath (HTTP /data/aircraft.json 404s on this image), so this co-locates with
+# readsb (podAffinity) and reads the same hostPath read-only — same dir tar1090 consumes.
+#
+# Prerequisites: (1) build the adsb-mqtt image in hwinther/wsh-rtl-sdr and pin the tag/digest below;
+# (2) create the `adsb` mosquitto user + the `adsb-mqtt-secret` (MQTT_PASSWORD) — see README.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adsb-mqtt
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: adsb-mqtt
+  template:
+    metadata:
+      labels:
+        app: adsb-mqtt
+        app.kubernetes.io/name: adsb-mqtt
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+        # Must land on the same node as readsb — aircraft.json is a node-local hostPath.
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: readsb
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: adsb-mqtt
+        # 0.10.0: distroless python (no shell), runs as 65532.
+        image: ghcr.io/hwinther/wsh-rtl-sdr/adsb-mqtt
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        env:
+        - name: MQTT_HOST
+          value: "${MQTT_HOST}"
+        - name: MQTT_PORT
+          value: "1883"
+        - name: MQTT_USERNAME
+          value: "adsb"
+        - name: MQTT_TOPIC
+          value: "adsb/aircraft"
+        - name: AIRCRAFT_JSON
+          value: "/data/aircraft.json"
+        - name: POLL_INTERVAL
+          value: "1"
+        # MQTT_PASSWORD from the Secret; optional so the pod still starts before the Secret exists.
+        envFrom:
+        - secretRef:
+            name: adsb-mqtt-secret
+            optional: true
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: dump1090-run
+          mountPath: /data
+          readOnly: true
+      volumes:
+      - name: dump1090-run
+        hostPath:
+          path: /run/k8s-edge-sdr/readsb
+          type: DirectoryOrCreate

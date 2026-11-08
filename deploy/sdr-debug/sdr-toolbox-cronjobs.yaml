@@ -1,0 +1,186 @@
+# sdr-toolbox (ghcr.io/hwinther/wsh-rtl-sdr/sdr-toolbox): suspended CronJobs used as Job templates,
+# one per dongle. Flux keeps the image current; nothing runs until a Job is created by hand. See
+# README.md.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sdr-toolbox-ais
+  labels:
+    app.kubernetes.io/name: sdr-toolbox
+    app.kubernetes.io/part-of: sdr-debug-edge-sdr
+spec:
+  # Never scheduled: a template for `kubectl create job --from=cronjob/sdr-toolbox-ais`.
+  suspend: true
+  schedule: "0 0 1 1 *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      # The pod sleeps 8 h and exits 0, which gives the dongle back to the decoder without a failed
+      # Job (KubeJobFailed); the deadline is only a backstop. These Jobs are created by hand, not by
+      # Flux, so a TTL is safe.
+      activeDeadlineSeconds: 29400
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: sdr-toolbox
+            app.kubernetes.io/part-of: sdr-debug-edge-sdr
+            sdr.wsh.no/dongle: ais
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          tolerations:
+          - key: node-type
+            operator: Equal
+            value: edge-sdr
+            effect: NoSchedule
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: role
+                    operator: In
+                    values:
+                    - sdr-edge
+                  - key: edge-sdr/ais-antenna
+                    operator: In
+                    values:
+                    - "true"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: sdr-toolbox
+            image: ghcr.io/hwinther/wsh-rtl-sdr/sdr-toolbox
+            imagePullPolicy: IfNotPresent
+            command:
+            - sleep
+            - "28800"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: "2"
+                memory: 512Mi
+                # The dongle, from sdr-device-plugin-edge-sdr. Pending while the decoder holds it.
+                sdr.wsh.no/rtlsdr-ais: 1
+            volumeMounts:
+            # Recordings (rtl_sdr, rtl_433 -w) and scratch; the root filesystem is read-only.
+            - name: work
+              mountPath: /home/sdr
+            - name: tmp
+              mountPath: /tmp
+          volumes:
+          - name: work
+            emptyDir:
+              sizeLimit: 2Gi
+          - name: tmp
+            emptyDir:
+              sizeLimit: 256Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sdr-toolbox-adsb
+  labels:
+    app.kubernetes.io/name: sdr-toolbox
+    app.kubernetes.io/part-of: sdr-debug-edge-sdr
+spec:
+  # Never scheduled: a template for `kubectl create job --from=cronjob/sdr-toolbox-adsb`.
+  suspend: true
+  schedule: "0 0 1 1 *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      # The pod sleeps 8 h and exits 0, which gives the dongle back to the decoder without a failed
+      # Job (KubeJobFailed); the deadline is only a backstop. These Jobs are created by hand, not by
+      # Flux, so a TTL is safe.
+      activeDeadlineSeconds: 29400
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: sdr-toolbox
+            app.kubernetes.io/part-of: sdr-debug-edge-sdr
+            sdr.wsh.no/dongle: adsb
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          tolerations:
+          - key: node-type
+            operator: Equal
+            value: edge-sdr
+            effect: NoSchedule
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: role
+                    operator: In
+                    values:
+                    - sdr-edge
+                  - key: edge-sdr/adsb-antenna
+                    operator: In
+                    values:
+                    - "true"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: sdr-toolbox
+            image: ghcr.io/hwinther/wsh-rtl-sdr/sdr-toolbox
+            imagePullPolicy: IfNotPresent
+            command:
+            - sleep
+            - "28800"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: "2"
+                memory: 512Mi
+                # The dongle, from sdr-device-plugin-edge-sdr. Pending while the decoder holds it.
+                sdr.wsh.no/rtlsdr-adsb: 1
+            volumeMounts:
+            # Recordings (rtl_sdr, rtl_433 -w) and scratch; the root filesystem is read-only.
+            - name: work
+              mountPath: /home/sdr
+            - name: tmp
+              mountPath: /tmp
+          volumes:
+          - name: work
+            emptyDir:
+              sizeLimit: 2Gi
+          - name: tmp
+            emptyDir:
+              sizeLimit: 256Mi

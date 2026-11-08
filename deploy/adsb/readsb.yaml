@@ -1,0 +1,253 @@
+# Requires node label edge-sdr/adsb-antenna=true (hardware with ADS-B antenna/SDR). The dongle comes
+# from the device plugin (sdr.wsh.no/rtlsdr-adsb, see sdr-device-plugin-edge-sdr), so readsb runs
+# unprivileged as 65532.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: readsb
+spec:
+  replicas: 1
+  # Edge node: avoid default maxSurge (25% → +1 pod) doubling memory during Flux/image rollouts.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: readsb
+  template:
+    metadata:
+      labels:
+        app: readsb
+        app.kubernetes.io/name: readsb
+        app.kubernetes.io/part-of: adsb-edge-sdr
+    spec:
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: edge-sdr
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - sdr-edge
+              - key: edge-sdr/adsb-antenna
+                operator: In
+                values:
+                - "true"
+      # The JSON directory is a hostPath shared with tar1090 and adsb-mqtt (read-only there) and is
+      # created root-owned; readsb writes it as 65532 (temp file + rename, so only the directory needs
+      # to be writable). Idempotent, CHOWN is the only capability.
+      initContainers:
+      - name: json-dir-owner
+        image: busybox:1.38@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
+        command:
+        - chown
+        - -R
+        - 65532:65532
+        - /run/readsb
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+        volumeMounts:
+        - name: readsb-json
+          mountPath: /run/readsb
+        resources:
+          requests:
+            cpu: 10m
+            memory: 8Mi
+          limits:
+            cpu: 100m
+            memory: 32Mi
+      containers:
+      # readsb (wiedehopf), the ADS-B decoder: one static binary on distroless, no shell, so the
+      # command line is here. Ports: raw 30002, SBS 30003, Beast in 30004/30104 (MLAT results from
+      # piaware), Beast out 30005 (the feeders).
+      - name: readsb
+        image: ghcr.io/hwinther/wsh-rtl-sdr/readsb
+        imagePullPolicy: IfNotPresent
+        # $(VAR) from the env below: ConfigMap then Secret. readsb prints its whole command line at
+        # startup, so it gets the position rounded to 2 decimals (READSB_LAT/READSB_LON in
+        # adsb-secret, the same precision receiver.json publishes), never the exact LAT/LON.
+        # Gain: readsb's autogain (dump1090-fa ran at max gain with --adaptive-range). No
+        # --forward-mlat: piaware's MLAT results come back on 30104 for tar1090/aircraft.json, but
+        # are not re-sent on 30005 to the feeders.
+        args:
+        - --device-type
+        - rtlsdr
+        - --device
+        - $(DEVICE_INDEX)
+        - --gain
+        - auto
+        - --lat
+        - $(READSB_LAT)
+        - --lon
+        - $(READSB_LON)
+        - --max-range
+        - "360"
+        - --net
+        - --net-ro-port
+        - "30002"
+        - --net-sbs-port
+        - "30003"
+        - --net-bi-port
+        - "30004,30104"
+        - --net-bo-port
+        - "30005"
+        - --write-json
+        - /run/readsb
+        # tar1090 reads tracks from readsb's per-aircraft traces and globe files (no tar1090.sh).
+        - --write-json-globe-index
+        - --json-location-accuracy
+        - "1"
+        - --quiet
+        envFrom:
+        - configMapRef:
+            name: adsb-env
+        - secretRef:
+            name: adsb-secret
+            optional: true
+        # The device plugin passes in only this dongle's /dev/bus/usb node; containerd's
+        # device_ownership_from_security_context makes it owned by 65532 (the host node is
+        # root:root 0664), see infra/k0s/raspberry-pi-worker.md.
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: readsb-json
+          mountPath: /run/readsb
+        readinessProbe:
+          tcpSocket:
+            port: 30005
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 30005
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 6
+        startupProbe:
+          tcpSocket:
+            port: 30005
+          failureThreshold: 36
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 200m
+            memory: 64Mi
+          limits:
+            cpu: "1"
+            memory: 384Mi
+            sdr.wsh.no/rtlsdr-adsb: 1
+      # Prometheus exporter sidecar: reads stats.json/aircraft.json from the shared
+      # readsb-json volume and serves reception metrics (message rate, aircraft counts,
+      # max range, signal levels) on :9105 — scraped by prometheus-agent-edge-sdr and
+      # remote-written to production Prometheus, so history survives pod restarts.
+      - name: dump1090-exporter
+        # 0.10.0: distroless python (no shell).
+        image: ghcr.io/hwinther/wsh-rtl-sdr/dump1090-exporter
+        imagePullPolicy: IfNotPresent
+        # LAT/LON for the max-range calculation. Overridden with the rounded READSB_LAT/READSB_LON
+        # (2 decimals, ~1 km, as receiver.json): the exporter logs its origin, and the start script
+        # echoes its command line.
+        envFrom:
+        - configMapRef:
+            name: adsb-env
+        - secretRef:
+            name: adsb-secret
+            optional: true
+        env:
+        - name: LAT
+          value: $(READSB_LAT)
+        - name: LON
+          value: $(READSB_LON)
+        - name: RESOURCE_PATH
+          value: /run/readsb
+        ports:
+        - name: metrics
+          containerPort: 9105
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: readsb-json
+          mountPath: /run/readsb
+          readOnly: true
+        resources:
+          requests:
+            cpu: 20m
+            memory: 48Mi
+          limits:
+            memory: 128Mi
+      volumes:
+      # readsb's JSON directory, shared with tar1090 and adsb-mqtt on the same node. Under /run
+      # (tmpfs, ~90 MB on the Pi) so the per-second JSON, globe and trace writes stay off the SD card;
+      # a few MB, recreated after a reboot.
+      - name: readsb-json
+        hostPath:
+          path: /run/k8s-edge-sdr/readsb
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: readsb
+spec:
+  selector:
+    app: readsb
+  ports:
+  - name: raw-out
+    port: 30002
+    targetPort: 30002
+  - name: sbs
+    port: 30003
+    targetPort: 30003
+  - name: beast-in-a
+    port: 30004
+    targetPort: 30004
+  - name: beast-out
+    port: 30005
+    targetPort: 30005
+  - name: beast-in-b
+    port: 30104
+    targetPort: 30104
+  - name: metrics
+    port: 9105
+    targetPort: metrics
