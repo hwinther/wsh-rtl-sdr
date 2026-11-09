@@ -1,4 +1,4 @@
-name: Prune GHCR images
+name: Prune GHCR
 
 # Smart GHCR pruner via the reusable prune-ghcr.yml. Deletes:
 #   - untagged manifests that aren't OCI 1.1 referrers (attestations are kept)
