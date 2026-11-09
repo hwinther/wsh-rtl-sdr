@@ -13,7 +13,7 @@ RUN apt-get update && \
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages --no-deps --target /opt/deps -r /tmp/requirements.txt
 
-FROM gcr.io/distroless/python3-debian13:nonroot@sha256:1c32c3720dc4c7f0c7dbe998737f32c200add6511eca7cec705008be488b87d6
+FROM gcr.io/distroless/python3-debian13:nonroot@sha256:c3ed2b61f3c4e410685565ceb3c818197b552832521b39d53eca5d2d9d0dc1e1
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=deps /opt/deps /opt/deps
 COPY adsb-mqtt.py /srv/adsb-mqtt.py
