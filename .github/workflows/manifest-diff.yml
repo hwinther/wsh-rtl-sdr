@@ -1,21 +1,26 @@
-name: "Manifest diff"
+# Synced from wshno/devops settings-sync/files/workflows/manifest-diff.yml: change it there.
+name: 'Manifest diff'
 
 # Renders deploy/ for the PR head and its base, validates the head, and posts a review report
-# (a resource map plus a dyff per changed resource) to the job summary and a sticky PR comment, so
-# manifest review happens here rather than in the cluster repo's tag bump. Both sides keep the
-# placeholder image tags; release.yml pins tag@digest.
+# (a resource map per render plus a dyff per changed resource) to the job summary and a sticky PR
+# comment, so manifest review happens here rather than in the cluster repo's tag bump. Both sides
+# keep the placeholder image tags; releases pin tag@digest.
+#
+# What to render comes from the repo's own .github/manifest-renders.txt (not synced), one
+# `<out-path>=<deploy-dir>[,<component>]` per line; blank lines and # comments are ignored.
 
 on:
   pull_request:
     paths:
-      - "deploy/**"
-      - ".github/workflows/manifest-diff.yml"
+      - 'deploy/**'
+      - '.github/manifest-renders.txt'
+      - '.github/workflows/manifest-diff.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: "${{ github.workflow }} @ ${{ github.head_ref }}"
+  group: '${{ github.workflow }} @ ${{ github.head_ref }}'
   cancel-in-progress: true
 
 jobs:
@@ -30,11 +35,26 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Read the render list
+        id: renders
+        run: |
+          set -euo pipefail
+          f=.github/manifest-renders.txt
+          if [ ! -f "$f" ]; then
+            echo "::error file=$f::Missing $f: list the renders, one '<out-path>=<deploy-dir>[,<component>]' per line."
+            exit 1
+          fi
+          list=$(grep -vE '^[[:space:]]*(#|$)' "$f" || true)
+          if [ -z "$list" ]; then
+            echo "::error file=$f::$f lists no renders."
+            exit 1
+          fi
+          printf 'Renders:\n%s\n' "$list"
+          eof="EOF_$(openssl rand -hex 8)"
+          { echo "list<<$eof"; echo "$list"; echo "$eof"; } >> "$GITHUB_OUTPUT"
+
       - name: Render, validate and report
-        uses: hwinther/reusable-workflows/.github/actions/manifests@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
+        uses: hwinther/reusable-workflows/.github/actions/manifests@baae133de5cf8489108bd7e8bed86b5fa558a846 # v2.27.1
         with:
           mode: diff
-          renders: |
-            adsb/manifests.yaml=deploy/adsb
-            ais-catcher/manifests.yaml=deploy/ais-catcher
-            sdr-debug/manifests.yaml=deploy/sdr-debug
+          renders: ${{ steps.renders.outputs.list }}
