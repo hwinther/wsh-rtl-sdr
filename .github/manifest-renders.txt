@@ -1,4 +1,6 @@
-# Owned by this repo (NOT synced): the renders the Manifest diff workflow (synced from wshno/devops) reviews, one per line:
+# Owned by this repo (NOT synced): the renders in the signed manifests artifact, one per line. The
+# release and PR-preview workflows publish them (renders_file) and Manifest diff (synced from
+# wshno/devops) reviews them:
 #   <out-path>=<deploy-dir>[,<component>]
 # out-path is the file in the rendered output/artifact, deploy-dir is kustomize-built, component is an
 # optional kustomize Component under deploy-dir. Blank lines and # comments are ignored.
