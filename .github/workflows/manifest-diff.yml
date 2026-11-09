@@ -7,7 +7,8 @@ name: 'Manifest diff'
 # keep the placeholder image tags; releases pin tag@digest.
 #
 # What to render comes from the repo's own .github/manifest-renders.txt (not synced), one
-# `<out-path>=<deploy-dir>[,<component>]` per line; blank lines and # comments are ignored.
+# `<out-path>=<deploy-dir>[,<component>]` per line; blank lines and # comments are ignored. The
+# release and PR-preview workflows publish from the same file.
 
 on:
   pull_request:
@@ -35,26 +36,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Read the render list
-        id: renders
-        run: |
-          set -euo pipefail
-          f=.github/manifest-renders.txt
-          if [ ! -f "$f" ]; then
-            echo "::error file=$f::Missing $f: list the renders, one '<out-path>=<deploy-dir>[,<component>]' per line."
-            exit 1
-          fi
-          list=$(grep -vE '^[[:space:]]*(#|$)' "$f" || true)
-          if [ -z "$list" ]; then
-            echo "::error file=$f::$f lists no renders."
-            exit 1
-          fi
-          printf 'Renders:\n%s\n' "$list"
-          eof="EOF_$(openssl rand -hex 8)"
-          { echo "list<<$eof"; echo "$list"; echo "$eof"; } >> "$GITHUB_OUTPUT"
-
       - name: Render, validate and report
-        uses: hwinther/reusable-workflows/.github/actions/manifests@163d37a45bfc3e65cf1145edc7db6570acc3db97 # v2.28.0
+        uses: hwinther/reusable-workflows/.github/actions/manifests@1fa5882e8aa1048af78492baf016f5a7b310be11 # v2.29.0
         with:
           mode: diff
-          renders: ${{ steps.renders.outputs.list }}
+          # Read on the PR head and used for both sides; the action fails on a missing or empty file.
+          renders_file: .github/manifest-renders.txt
