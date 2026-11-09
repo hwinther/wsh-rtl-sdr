@@ -132,13 +132,10 @@ jobs:
       # Signed in this job, so the artifact's cosign identity is release.yml@refs/tags/v<version>.
       # One directory per Flux Kustomization path (see deploy/README.md).
       - name: Render, validate, push and sign
-        uses: hwinther/reusable-workflows/.github/actions/manifests@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
+        uses: hwinther/reusable-workflows/.github/actions/manifests@1fa5882e8aa1048af78492baf016f5a7b310be11 # v2.29.0
         with:
           mode: push
           artifact: ghcr.io/hwinther/wsh-rtl-sdr/manifests
           tag: ${{ steps.images.outputs.version }}
           images: ${{ steps.images.outputs.refs }}
-          renders: |
-            adsb/manifests.yaml=deploy/adsb
-            ais-catcher/manifests.yaml=deploy/ais-catcher
-            sdr-debug/manifests.yaml=deploy/sdr-debug
+          renders_file: .github/manifest-renders.txt
