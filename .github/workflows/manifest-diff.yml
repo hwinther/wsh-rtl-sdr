@@ -54,7 +54,7 @@ jobs:
           { echo "list<<$eof"; echo "$list"; echo "$eof"; } >> "$GITHUB_OUTPUT"
 
       - name: Render, validate and report
-        uses: hwinther/reusable-workflows/.github/actions/manifests@baae133de5cf8489108bd7e8bed86b5fa558a846 # v2.27.1
+        uses: hwinther/reusable-workflows/.github/actions/manifests@163d37a45bfc3e65cf1145edc7db6570acc3db97 # v2.28.0
         with:
           mode: diff
           renders: ${{ steps.renders.outputs.list }}
