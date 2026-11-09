@@ -1,5 +1,5 @@
 # Synced from wshno/devops settings-sync/files/workflows/poutine.yml: change it there.
-name: Poutine - GitHub Actions SAST
+name: poutine
 
 on:
   push:
