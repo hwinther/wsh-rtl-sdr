@@ -7,8 +7,9 @@ name: 'Manifest diff'
 # keep the placeholder image tags; releases pin tag@digest.
 #
 # What to render comes from the repo's own .github/manifest-renders.txt (not synced), one
-# `<out-path>=<deploy-dir>[,<component>]` per line; blank lines and # comments are ignored. The
-# release and PR-preview workflows publish from the same file.
+# `<out-path>=<deploy-dir>[,<component>]` per line; blank lines and # comments are ignored. A
+# repo's release and PR-preview workflows can publish from the same file (manifests action
+# renders_file), so the reviewed renders are the released ones.
 
 on:
   pull_request:
