@@ -16,7 +16,7 @@
 # readsb follows upstream dev, where wiedehopf works and from which the community images build.
 # bump-sources.yml moves this to the newest dev commit at least 7 days old (Dependabot's cooldown),
 # one PR a week.
-ARG READSB_REF=89cf0385028f46b5fa1ae8b6a5f814e634917f76
+ARG READSB_REF=6bc130080b39da7c6e31943f1edf07ceb3ac8a3b
 
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.10.0@sha256:40fe21f44bb8cddf1eb1226db190d0a984118f62ee02a91b77d99448d28264a6 AS xx
 
