@@ -1,68 +1,64 @@
-# Please see the documentation for all configuration options:
-# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+# Synced from wshno/devops settings-sync/files/dependabot/wsh-rtl-sdr.yml (built by
+# settings-sync/dependabot/build.py): change it there. Stack: hwinther/wsh-rtl-sdr: GitHub Actions, Docker (daily: the feeder images track upstream), pip.
+#
+# Directories are single-level wildcards, one per depth ("/", "/*", "/*/*"); directories without a
+# manifest are skipped. Cooldown: 7 days, 14 for GitHub Actions, so the synced workflows are updated
+# in wshno/devops (Renovate, 7 days) and synced before Dependabot here proposes the same bump.
+# Groups: a dependency goes to the FIRST group that matches; groups that match nothing are harmless.
 
 version: 2
 updates:
 - package-ecosystem: "github-actions"
   directories:
   - "/"
+  - "/.github/actions/*"
   open-pull-requests-limit: 20
-  target-branch: "main"
   schedule:
     interval: "weekly"
-    day: "monday"
+    day: "sunday"
   cooldown:
-    default-days: 7
+    default-days: 14
+  assignees:
+  - "hwinther"
   groups:
     reusable-workflows:
       patterns:
-      - "hwinther/reusable-workflows/*"
+      - "hwinther/reusable-workflows*"
 
 - package-ecosystem: "docker"
   directories:
-  - "/images/fr24"
-  - "/images/opensky"
-  - "/images/piaware"
-  - "/images/tar1090"
-  - "/images/ais-catcher"
-  - "/images/readsb"
-  - "/images/adsb-mqtt"
-  - "/images/dump1090-exporter"
-  - "/images/gsm-tools"
-  - "/images/sdr-toolbox"
+  - "/"
+  - "/*"
+  - "/*/*"
+  open-pull-requests-limit: 20
   schedule:
     interval: "daily"
   cooldown:
     default-days: 7
-  open-pull-requests-limit: 20
+  assignees:
+  - "hwinther"
   groups:
-    # The same base digests are pinned in most Dockerfiles here (debian:trixie-slim, alpine,
-    # tonistiigi/xx, golang, distroless), so one upstream push would otherwise open a PR per
-    # directory. Group them into a single PR across all directories.
     base-images:
       patterns:
-      - "debian"
-      - "alpine"
-      - "tonistiigi/xx"
-      - "golang"
-      - "gcr.io/distroless/*"
+      - "*"
 
-# The distroless python images pin their whole dependency tree in requirements.txt (installed with
-# --no-deps). Grouped per directory, so aiohttp and its helpers arrive as one PR.
 - package-ecosystem: "pip"
   directories:
-  - "/images/adsb-mqtt"
-  - "/images/dump1090-exporter"
+  - "/"
+  - "/*"
+  - "/*/*"
+  open-pull-requests-limit: 20
   schedule:
     interval: "weekly"
-    day: "monday"
+    day: "sunday"
   cooldown:
     default-days: 7
+  assignees:
+  - "hwinther"
+  ignore:
+  # aioprometheus stays on the version dump1090-exporter is written against.
+  - dependency-name: "aioprometheus"
   groups:
     python:
       patterns:
       - "*"
-  # dump1090exporter 22.3.0 (unmaintained since 2022) needs aioprometheus 22.3's API: 23.x fails at
-  # import ("from aioprometheus import Gauge"), which the smoke test caught in #71.
-  ignore:
-  - dependency-name: "aioprometheus"
