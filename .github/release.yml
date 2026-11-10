@@ -28,4 +28,4 @@ changelog:
     - title: 👷 Build and CI
       labels: [build, ci]
     - title: 🧹 Other changes
-      labels: ["*"]
+      labels: ['*']
