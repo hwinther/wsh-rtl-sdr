@@ -1,0 +1,76 @@
+# Synced from wshno/devops settings-sync/files/workflows/type-label.yml: change it there.
+name: Type label
+
+# Labels a PR by its Conventional Commits title (squash merges use it as the commit message), so
+# .github/release.yml can group the release notes: feat -> feature, fix -> bug, perf -> performance,
+# refactor, docs -> documentation, test, build, ci, chore/style/revert -> chore, and `breaking` for
+# `type!:` or a "BREAKING CHANGE" in the description. A changed title swaps the label. The labels
+# come from wshno/devops settings-sync/labels.yml.
+
+on:
+  # pull_request_target so fork and Dependabot PRs can be labelled too. Safe: no checkout, nothing
+  # from the PR runs; the title and description are only read through environment variables.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, edited, reopened]
+
+permissions: {}
+
+concurrency:
+  group: type-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Label from the PR title
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          managed=(breaking feature bug performance refactor documentation test build ci chore)
+          want=()
+          re='^([A-Za-z]+)(\([^)]*\))?(!)?: '
+          if [[ "$TITLE" =~ $re ]]; then
+            type=${BASH_REMATCH[1],,}
+            bang=${BASH_REMATCH[3]}
+            case "$type" in
+              feat) want+=(feature) ;;
+              fix) want+=(bug) ;;
+              perf) want+=(performance) ;;
+              refactor) want+=(refactor) ;;
+              docs) want+=(documentation) ;;
+              test|tests) want+=(test) ;;
+              build) want+=(build) ;;
+              ci) want+=(ci) ;;
+              chore|style|revert) want+=(chore) ;;
+              *) echo "::notice::Unknown type '$type' in the title; no type label." ;;
+            esac
+            if [ -n "$bang" ] || grep -qE '^BREAKING[ -]CHANGE' <<<"$BODY"; then want+=(breaking); fi
+          else
+            echo "::notice::The title isn't a Conventional Commit (type(scope): subject); no type label."
+          fi
+          declare -A has=() wanted=()
+          while IFS= read -r l; do has["$l"]=1; done < <(jq -r '.[]' <<<"$LABELS" | tr -d '\r')
+          for l in "${want[@]}"; do wanted["$l"]=1; done
+          add=(); remove=()
+          for l in "${want[@]}"; do [ -n "${has[$l]:-}" ] || add+=("$l"); done
+          for l in "${managed[@]}"; do
+            if [ -z "${wanted[$l]:-}" ] && [ -n "${has[$l]:-}" ]; then remove+=("$l"); fi
+          done
+          args=()
+          if [ "${#add[@]}" -gt 0 ]; then args+=(--add-label "$(IFS=,; echo "${add[*]}")"); fi
+          if [ "${#remove[@]}" -gt 0 ]; then args+=(--remove-label "$(IFS=,; echo "${remove[*]}")"); fi
+          if [ "${#args[@]}" -eq 0 ]; then
+            echo "Labels already match: ${want[*]:-none}"
+            exit 0
+          fi
+          echo "add: ${add[*]:-} remove: ${remove[*]:-}"
+          gh pr edit "$PR" -R "$REPO" "${args[@]}"
