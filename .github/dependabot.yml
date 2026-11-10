@@ -1,64 +1,64 @@
 # Synced from wshno/devops settings-sync/files/dependabot/wsh-rtl-sdr.yml (built by
 # settings-sync/dependabot/build.py): change it there. Stack: hwinther/wsh-rtl-sdr: GitHub Actions, Docker (daily: the feeder images track upstream), pip.
 #
-# Directories are single-level wildcards, one per depth ("/", "/*", "/*/*"); directories without a
+# Directories are single-level wildcards, one per depth ('/', '/*', '/*/*'); directories without a
 # manifest are skipped. Cooldown: 7 days, 14 for GitHub Actions, so the synced workflows are updated
 # in wshno/devops (Renovate, 7 days) and synced before Dependabot here proposes the same bump.
 # Groups: a dependency goes to the FIRST group that matches; groups that match nothing are harmless.
 
 version: 2
 updates:
-- package-ecosystem: "github-actions"
-  directories:
-  - "/"
-  - "/.github/actions/*"
-  open-pull-requests-limit: 20
-  schedule:
-    interval: "weekly"
-    day: "sunday"
-  cooldown:
-    default-days: 14
-  assignees:
-  - "hwinther"
-  groups:
-    reusable-workflows:
-      patterns:
-      - "hwinther/reusable-workflows*"
+  - package-ecosystem: 'github-actions'
+    directories:
+      - '/'
+      - '/.github/actions/*'
+    open-pull-requests-limit: 20
+    schedule:
+      interval: 'weekly'
+      day: 'sunday'
+    cooldown:
+      default-days: 14
+    assignees:
+      - 'hwinther'
+    groups:
+      reusable-workflows:
+        patterns:
+          - 'hwinther/reusable-workflows*'
 
-- package-ecosystem: "docker"
-  directories:
-  - "/"
-  - "/*"
-  - "/*/*"
-  open-pull-requests-limit: 20
-  schedule:
-    interval: "daily"
-  cooldown:
-    default-days: 7
-  assignees:
-  - "hwinther"
-  groups:
-    base-images:
-      patterns:
-      - "*"
+  - package-ecosystem: 'docker'
+    directories:
+      - '/'
+      - '/*'
+      - '/*/*'
+    open-pull-requests-limit: 20
+    schedule:
+      interval: 'daily'
+    cooldown:
+      default-days: 7
+    assignees:
+      - 'hwinther'
+    groups:
+      base-images:
+        patterns:
+          - '*'
 
-- package-ecosystem: "pip"
-  directories:
-  - "/"
-  - "/*"
-  - "/*/*"
-  open-pull-requests-limit: 20
-  schedule:
-    interval: "weekly"
-    day: "sunday"
-  cooldown:
-    default-days: 7
-  assignees:
-  - "hwinther"
-  ignore:
-  # aioprometheus stays on the version dump1090-exporter is written against.
-  - dependency-name: "aioprometheus"
-  groups:
-    python:
-      patterns:
-      - "*"
+  - package-ecosystem: 'pip'
+    directories:
+      - '/'
+      - '/*'
+      - '/*/*'
+    open-pull-requests-limit: 20
+    schedule:
+      interval: 'weekly'
+      day: 'sunday'
+    cooldown:
+      default-days: 7
+    assignees:
+      - 'hwinther'
+    ignore:
+      # aioprometheus stays on the version dump1090-exporter is written against.
+      - dependency-name: 'aioprometheus'
+    groups:
+      python:
+        patterns:
+          - '*'
