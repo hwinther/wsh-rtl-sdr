@@ -14,22 +14,46 @@ on:
     branches: [main]
     paths:
       - "images/adsb-mqtt/**"
+  # Build and Grype-scan on the PR, no push: the report lands on the PR before anything is published.
+  pull_request:
+    branches: [main]
+    paths:
+      - "images/adsb-mqtt/**"
+      - ".github/workflows/build-adsb-mqtt.yml"
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-  attestations: write
-  actions: write
-  security-events: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  pr:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+      pull-requests: write
+    uses: hwinther/reusable-workflows/.github/workflows/build-and-scan-docker.yml@3a42f0c604e95cd46a9b9e01519aea3f425c5589 # v2.33.0
+    with:
+      container_image_name_postfix: adsb-mqtt
+      build_context: images/adsb-mqtt
+      dockerfile: images/adsb-mqtt/Dockerfile
+      # Nothing downstream consumes the loaded image or supply-chain files on a PR.
+      generate_supply_chain_artifacts: false
+      release_asset_upload_enabled: false
+
   adsb-mqtt:
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      actions: write
+      security-events: write
+      pull-requests: write
     uses: hwinther/reusable-workflows/.github/workflows/docker-container.yml@6b6810e17143f38ac9dc0f84d504e7ff08b1d2bf # v2.26.0
     with:
       container_image_name_postfix: adsb-mqtt
