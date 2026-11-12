@@ -14,3 +14,13 @@ resources:
 images:
 - name: ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher
   newTag: 0.0.0-dev
+# Kubescape rescans old ReplicaSets, which keep their old image: a scaled-to-zero one overwrote the
+# deployment's vulnerability summary and fired KubescapeOwnImageCriticalVulnerabilities for an image
+# that no longer ran (esp-poller in hwinther/proxmox). Rollback is a new release, so two are plenty.
+patches:
+- target:
+    kind: Deployment
+  patch: |-
+    - op: add
+      path: /spec/revisionHistoryLimit
+      value: 2
