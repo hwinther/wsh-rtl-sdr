@@ -2,18 +2,20 @@
 #
 # adsb-mqtt: polls readsb's aircraft.json and republishes it to MQTT (mosquitto).
 #
-# Distroless python (Debian 13's python3.13, no shell, uid 65532). paho-mqtt is pip-installed in a
-# trixie builder with the same Python into /opt/deps. Dependabot bumps the two digests (docker) and
-# requirements.txt (pip); either change rebuilds the image on merge.
+# Chainguard's Wolfi-based python (no shell or package manager, uid 65532), rebuilt daily on the
+# current upstream CPython. Distroless python scanned as Debian's older python3.13 plus krb5, expat
+# and libgomp: 4 critical and ~50 high, all "won't fix". paho-mqtt is pip-installed in the matching
+# latest-dev builder into /opt/deps. Dependabot bumps the two digests together (base-images group)
+# and requirements.txt (pip); either change rebuilds the image on merge. The free tier only publishes
+# `latest`, so the Python minor can move with a digest bump; paho-mqtt is pure Python.
 
-FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS deps
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3-pip && \
-    rm -rf /var/lib/apt/lists/*
+FROM cgr.dev/chainguard/python:latest-dev@sha256:c0553ee682a37a13dc2710716bc1a041d374cd4474379ca1a101044adcdabffe AS deps
+# The -dev image runs as nonroot (65532); root is only needed to write /opt/deps.
+USER root
 COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages --no-deps --target /opt/deps -r /tmp/requirements.txt
+RUN pip install --no-cache-dir --no-deps --target /opt/deps -r /tmp/requirements.txt
 
-FROM gcr.io/distroless/python3-debian13:nonroot@sha256:1c32c3720dc4c7f0c7dbe998737f32c200add6511eca7cec705008be488b87d6
+FROM cgr.dev/chainguard/python:latest@sha256:0ce856292cb65f45ee233c5ef7fcf55bd5210102af01a08efb392c3495195909
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=deps /opt/deps /opt/deps
 COPY adsb-mqtt.py /srv/adsb-mqtt.py
@@ -33,4 +35,5 @@ ENV PYTHONPATH="/opt/deps" \
     POLL_INTERVAL="1" \
     PUBLISH_UNCHANGED="false"
 
+USER 65532:65532
 ENTRYPOINT ["/usr/bin/python3", "/srv/adsb-mqtt.py"]

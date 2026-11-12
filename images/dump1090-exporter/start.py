@@ -6,6 +6,7 @@ the max-range calculation, otherwise the exporter falls back to receiver.json. T
 not printed, so the position stays out of the logs.
 """
 
+import asyncio
 import os
 import sys
 
@@ -21,4 +22,7 @@ for env, flag in (("LAT", "--latitude"), ("LON", "--longitude")):
         args.append(f"{flag}={os.environ[env]}")
 
 sys.argv = args
+# dump1090exporter calls asyncio.get_event_loop() with no loop running, which raises RuntimeError
+# since Python 3.14 (it used to create one). Set one first; get_event_loop() then returns it.
+asyncio.set_event_loop(asyncio.new_event_loop())
 sys.exit(main())
