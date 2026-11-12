@@ -35,7 +35,7 @@ jobs:
   tag:
     permissions:
       contents: write
-    uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@5fe96b07b3e568a1cebacb630b5f4807b518bca3 # v2.27.0
+    uses: hwinther/reusable-workflows/.github/workflows/tag-and-release.yml@3a42f0c604e95cd46a9b9e01519aea3f425c5589 # v2.33.0
     with:
       tag_name: ${{ inputs.tag_name }}
       release_notes: ${{ inputs.release_notes }}
