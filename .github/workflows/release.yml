@@ -78,6 +78,10 @@ jobs:
       dockerfile: images/${{ matrix.image }}/Dockerfile
       platforms: linux/amd64,linux/arm64
       artifact_name_suffix: ${{ matrix.image }}
+      # The GitHub Release already exists when the tag build runs (tag-and-release creates it), and
+      # attaching the SBOMs to it needs contents: write, so sbom-action's upload got 403. Releases stay
+      # immutable: the SBOM is the signed CycloneDX attestation in GHCR (and a workflow artifact).
+      release_asset_upload_enabled: false
       grype_fail_build: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_grype_gate && 'never' || 'auto' }}
 
   manifests:
