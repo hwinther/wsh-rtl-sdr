@@ -40,7 +40,10 @@ FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f0
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=build /out/ /tmp/piaware/
+# upgrade: the debian:trixie-slim digest lags Debian's security updates (zlib1g's deb13u1 fix wasn't in
+# the newest image yet), and the release's Grype gate fails on a high finding that has a fix.
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends /tmp/piaware/piaware_*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/piaware && \
     install -d -o 65532 -g 65532 /var/cache/piaware /run/piaware

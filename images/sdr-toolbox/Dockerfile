@@ -21,7 +21,10 @@ FROM ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher:0.19.2@sha256:1100c6c46f2b859ae54c
 
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
+# upgrade: the debian:trixie-slim digest lags Debian's security updates (zlib1g's deb13u1 fix wasn't in
+# the newest image yet), and the release's Grype gate fails on a high finding that has a fix.
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         rtl-sdr rtl-433 multimon-ng \
         hackrf airspy soapysdr-tools soapysdr-module-rtlsdr soapysdr-module-hackrf soapysdr-module-airspy \
