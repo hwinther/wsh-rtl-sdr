@@ -49,7 +49,7 @@ COPY --chmod=755 sbom.sh /usr/local/bin/sbom.sh
 RUN sbom.sh ais-catcher "$AIS_CATCHER_REF" https://github.com/jvde-github/AIS-catcher \
         librtlsdr libusb zlib musl libstdc++ libgcc > /build/ais-catcher.cdx.json
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=build /build/AIS-catcher /usr/bin/AIS-catcher
 COPY --from=build /build/ais-catcher.cdx.json /usr/share/sbom/ais-catcher.cdx.json

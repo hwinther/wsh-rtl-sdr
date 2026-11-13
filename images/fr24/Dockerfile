@@ -33,13 +33,13 @@ RUN set -eu; \
     tar -xzf /tmp/fr24feed.tgz -C /tmp; \
     install -D -m 0755 "/tmp/fr24feed_${TARGETARCH}/fr24feed" /out/fr24feed
 
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.24@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS noop-shell
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine3.24@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS noop-shell
 ARG TARGETOS
 ARG TARGETARCH
 COPY noop-shell/main.go /src/main.go
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /out/noop-shell /src/main.go
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=noop-shell /out/noop-shell /bin/bash
 COPY --from=download /out/fr24feed /usr/bin/fr24feed
