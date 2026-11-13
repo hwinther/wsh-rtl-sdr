@@ -21,8 +21,13 @@ FROM ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher:0.19.2@sha256:1100c6c46f2b859ae54c
 
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
+# TODO: drop the zlib1g pin once Dependabot moves debian:trixie-slim to a digest that ships
+# 1:1.3.dfsg+really1.3.1-1+deb13u1 (CVE-2026-76844, CVE-2026-85091). The newest digest still had the
+# vulnerable -1+b1, and the release's Grype gate fails on a high finding that has a fix. Pinned to the
+# exact version rather than `apt-get upgrade`, so the build stays defined by this file.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
         rtl-sdr rtl-433 multimon-ng \
         hackrf airspy soapysdr-tools soapysdr-module-rtlsdr soapysdr-module-hackrf soapysdr-module-airspy \
         sox socat netcat-openbsd curl ca-certificates jq python3 python3-numpy \

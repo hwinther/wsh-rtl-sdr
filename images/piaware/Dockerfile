@@ -40,8 +40,13 @@ FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f0
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=build /out/ /tmp/piaware/
+# TODO: drop the zlib1g pin once Dependabot moves debian:trixie-slim to a digest that ships
+# 1:1.3.dfsg+really1.3.1-1+deb13u1 (CVE-2026-76844, CVE-2026-85091). The newest digest still had the
+# vulnerable -1+b1, and the release's Grype gate fails on a high finding that has a fix. Pinned to the
+# exact version rather than `apt-get upgrade`, so the build stays defined by this file.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends /tmp/piaware/piaware_*.deb && \
+    apt-get install -y --no-install-recommends zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+        /tmp/piaware/piaware_*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/piaware && \
     install -d -o 65532 -g 65532 /var/cache/piaware /run/piaware
 
