@@ -38,7 +38,7 @@ jobs:
           persist-credentials: false
 
       - name: Render, validate and report
-        uses: hwinther/reusable-workflows/.github/actions/manifests@40f98079031642a4f4f9d35246bc29c09e4e235d # v2.40.0
+        uses: hwinther/reusable-workflows/.github/actions/manifests@299d9661714efa76411f254ee9f66643daf426ec # v2.40.1
         with:
           mode: diff
           # Read on the PR head and used for both sides; the action fails on a missing or empty file.
