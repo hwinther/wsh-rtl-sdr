@@ -1,0 +1,38 @@
+# Synced from wshno/devops settings-sync/files/workflows/format.yml: change it there.
+name: Format code
+
+# Opens a pull request with the repository formatted. hwinther/reusable-workflows finds what applies
+# here by itself: jb cleanupcode for each *.slnx, prettier for each npm project that depends on it,
+# ruff format when Ruff is configured, gofmt with a go.mod. A .github/format.yml can exclude paths,
+# list solutions (old *.sln files are not picked up on their own) or turn a formatter off; see
+# https://github.com/hwinther/reusable-workflows/blob/main/.github/actions/_format-detect/scripts/detect.sh
+#
+# To keep git blame readable after a format PR is merged, run this again with blame-ignore-revs and
+# set, once per clone: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'format: every formatter that applies, one PR. eslint-fix: eslint --fix, its own PR (it changes code: review it as such). blame-ignore-revs: after a format PR is merged, add its commit to .git-blame-ignore-revs.'
+        type: choice
+        default: format
+        options:
+          - format
+          - eslint-fix
+          - blame-ignore-revs
+
+permissions: {}
+
+concurrency:
+  group: format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    uses: hwinther/reusable-workflows/.github/workflows/format-and-create-pr.yml@40f98079031642a4f4f9d35246bc29c09e4e235d # v2.40.0
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      mode: ${{ inputs.mode }}
