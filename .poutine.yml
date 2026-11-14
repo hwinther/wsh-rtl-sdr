@@ -1,9 +1,12 @@
 # Synced from wshno/devops settings-sync/files/poutine-config.yml (as .poutine.yml): change it there.
 # poutine (.github/workflows/poutine.yml) configuration.
 skip:
-  # hwinther/reusable-workflows is our own action and workflow repo, not a third party: its owner
-  # just isn't a GitHub "verified creator". The prefix covers every workflow and action in it
-  # (poutine matches the purl up to the @ref / #subpath).
+  # Approved actions whose owner just isn't a GitHub "verified creator". poutine matches the purl up
+  # to the @ref / #subpath, so a prefix covers every workflow and action in that repo.
+  # - hwinther/reusable-workflows: our own action and workflow repo, not a third party.
+  # - zizmorcore/zizmor-action: the zizmor project's own action, which the synced zizmor.yml runs
+  #   (pinned by SHA, updated by Dependabot).
   - rule: github_action_from_unverified_creator_used
     purl:
       - pkg:githubactions/hwinther/reusable-workflows
+      - pkg:githubactions/zizmorcore/zizmor-action
