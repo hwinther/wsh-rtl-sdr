@@ -16,8 +16,8 @@
 #
 # Updates: Dependabot bumps the debian, readsb and ais-catcher digests.
 
-FROM ghcr.io/hwinther/wsh-rtl-sdr/readsb:0.19.2@sha256:480bb4ee204dd1a0dffe884cbbf4e6c53e537ea16737f27add583095f1a028ba AS readsb
-FROM ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher:0.19.2@sha256:1100c6c46f2b859ae54cb5f5c8900516714bd875cc8a80c8d20510acde54696b AS ais-catcher
+FROM ghcr.io/hwinther/wsh-rtl-sdr/readsb:0.19.4@sha256:d8157423c5f64437001abbc1b2d52cb0609ae66ff70d0ed19ce47024d72778a6 AS readsb
+FROM ghcr.io/hwinther/wsh-rtl-sdr/ais-catcher:0.19.4@sha256:8bf77af59afe95638934955f82d83f3c6c118bf554763e69187838fa893be744 AS ais-catcher
 
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"

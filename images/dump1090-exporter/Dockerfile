@@ -15,14 +15,14 @@
 # builds from its sdist, and FROZENLIST_NO_EXTENSIONS makes that the pure-Python version, so no
 # compiler is needed. aiohttp and the rest come as prebuilt wheels.
 
-FROM cgr.dev/chainguard/python:latest-dev@sha256:c0553ee682a37a13dc2710716bc1a041d374cd4474379ca1a101044adcdabffe AS deps
+FROM cgr.dev/chainguard/python:latest-dev@sha256:c047e6d1e47b09144a771bfde6595a00c49dc8571caa7dd62df88634e84304ae AS deps
 # The -dev image runs as nonroot (65532); root is only needed to write /opt/deps.
 USER root
 COPY requirements.txt /tmp/requirements.txt
 RUN FROZENLIST_NO_EXTENSIONS=1 pip install --no-cache-dir --no-deps --prefer-binary --target /opt/deps \
         -r /tmp/requirements.txt
 
-FROM cgr.dev/chainguard/python:latest@sha256:0ce856292cb65f45ee233c5ef7fcf55bd5210102af01a08efb392c3495195909
+FROM cgr.dev/chainguard/python:latest@sha256:f6e5c2e056393d48fa8afa1ea58a1394db4cd5de1a8f0f48105c8e88fcd4f9d3
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=deps /opt/deps /opt/deps
 COPY start.py /srv/start.py
