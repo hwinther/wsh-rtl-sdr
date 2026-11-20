@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   format:
-    uses: hwinther/reusable-workflows/.github/workflows/format-and-create-pr.yml@9c35353ba10990931ef9a24642ff1d0ecf0b82f8 # v2.42.0
+    uses: hwinther/reusable-workflows/.github/workflows/format-and-create-pr.yml@3fe5e0dc856a0b181004893b2bd380dac3e858fe # v2.42.1
     permissions:
       contents: write
       pull-requests: write
