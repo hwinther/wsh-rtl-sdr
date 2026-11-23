@@ -9,13 +9,13 @@
 # and requirements.txt (pip); either change rebuilds the image on merge. The free tier only publishes
 # `latest`, so the Python minor can move with a digest bump; paho-mqtt is pure Python.
 
-FROM cgr.dev/chainguard/python:latest-dev@sha256:c0553ee682a37a13dc2710716bc1a041d374cd4474379ca1a101044adcdabffe AS deps
+FROM cgr.dev/chainguard/python:latest-dev@sha256:e2736acdf97f2b1cb59545f4f26317b18a953e90e59fa4c212a782315b248111 AS deps
 # The -dev image runs as nonroot (65532); root is only needed to write /opt/deps.
 USER root
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --no-deps --target /opt/deps -r /tmp/requirements.txt
 
-FROM cgr.dev/chainguard/python:latest@sha256:0ce856292cb65f45ee233c5ef7fcf55bd5210102af01a08efb392c3495195909
+FROM cgr.dev/chainguard/python:latest@sha256:f33049a06b10d6bd729e08a181094774ca5e9c7b0cf1bbe674aa977cd5258daa
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=deps /opt/deps /opt/deps
 COPY adsb-mqtt.py /srv/adsb-mqtt.py
