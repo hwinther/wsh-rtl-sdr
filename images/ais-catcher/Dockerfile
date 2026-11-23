@@ -20,7 +20,7 @@ ARG AIS_CATCHER_REF=08137f19176961987088663bee0291505a28f25e
 
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.10.0@sha256:40fe21f44bb8cddf1eb1226db190d0a984118f62ee02a91b77d99448d28264a6 AS xx
 
-FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS build
+FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS build
 COPY --from=xx / /
 RUN apk add --no-cache clang lld cmake make git pkgconf
 ARG TARGETPLATFORM
@@ -49,7 +49,7 @@ COPY --chmod=755 sbom.sh /usr/local/bin/sbom.sh
 RUN sbom.sh ais-catcher "$AIS_CATCHER_REF" https://github.com/jvde-github/AIS-catcher \
         librtlsdr libusb zlib musl libstdc++ libgcc > /build/ais-catcher.cdx.json
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5
 LABEL maintainer="Hans Christian Winther-Sørensen <docker@wsh.no>"
 COPY --from=build /build/AIS-catcher /usr/bin/AIS-catcher
 COPY --from=build /build/ais-catcher.cdx.json /usr/share/sbom/ais-catcher.cdx.json
