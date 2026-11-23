@@ -30,9 +30,11 @@ concurrency:
 
 jobs:
   format:
-    uses: hwinther/reusable-workflows/.github/workflows/format-and-create-pr.yml@79d92560bd4f25499ba70ceaf1ee54027d891208 # v2.44.0
+    uses: hwinther/reusable-workflows/.github/workflows/format-and-create-pr.yml@553c99d860391267236067907d3e51bc7f57066d # v2.45.0
     permissions:
       contents: write
       pull-requests: write
     with:
+      # Repository variable RUNS_ON (set by settings-sync/runs-on.yml), e.g. self-hosted on private repos.
+      runs_on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
       mode: ${{ inputs.mode }}
